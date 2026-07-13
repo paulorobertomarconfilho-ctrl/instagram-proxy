@@ -326,9 +326,6 @@
       <button class="btn btn-ghost" data-close="overlayGen">Cancelar</button>
       <button class="btn btn-primary" id="genBtn">Gerar com IA</button>
     </div>
-    <div id="noAiNotice" style="display:none;background:#F3E6C8;color:#5a4415;border-radius:6px;padding:10px 12px;font-size:12.5px;margin-top:10px;">
-      A geração por IA só funciona dentro do chat do Claude. Aqui, cole abaixo o texto que você já gerou lá.
-    </div>
     <div class="result-box" id="genResult" style="display:none;"></div>
     <div class="field" style="margin-top:10px;">
       <label>Ou cole aqui o texto gerado no chat</label>
@@ -469,7 +466,6 @@ function renderLanes(){
             document.getElementById('imageGallery').innerHTML = '';
             document.getElementById('genProductLinks').value = '';
       document.getElementById('publishStatus').className = 'publish-status';
-      document.getElementById('noAiNotice').style.display = hasClaudeStorage ? 'none' : 'block';
       document.getElementById('overlayGen').classList.add('show');
     });
   });
@@ -563,48 +559,41 @@ document.getElementById('saveConnectBtn').addEventListener('click', async ()=>{
 });
 
 document.getElementById('genBtn').addEventListener('click', async ()=>{
-  const acc = accounts.find(a=>a.id===activeAccountId);
-  const format = document.getElementById('genFormat').value;
-  const topic = document.getElementById('genTopic').value.trim();
-  if(!topic){ alert('Escreve o tema ou produto primeiro.'); return; }
-  const resultBox = document.getElementById('genResult');
-  resultBox.style.display = 'block';
-  resultBox.innerHTML = '<span class="loading-dots">Gerando</span>';
-  document.getElementById('genSaveRow').style.display = 'none';
-  document.getElementById('genImageRow').style.display = 'none';
-  document.getElementById('publishStatus').className = 'publish-status';
+    const acc = accounts.find(a=>a.id===activeAccountId);
+    const format = document.getElementById('genFormat').value;
+    const topic = document.getElementById('genTopic').value.trim();
+    if(!topic){ alert('Escreve o tema ou produto primeiro.'); return; }
+    const resultBox = document.getElementById('genResult');
+    resultBox.style.display = 'block';
+    resultBox.innerHTML = '<span class="loading-dots">Gerando</span>';
+    document.getElementById('genSaveRow').style.display = 'none';
+    document.getElementById('genImageRow').style.display = 'none';
+    document.getElementById('publishStatus').className = 'publish-status';
 
-  const prompt = `Você é um criador de conteúdo para Instagram no Brasil.
-Conta: ${acc.name}
-Nicho: ${acc.niche}
-Tom de voz: ${acc.tone}
-Formato pedido: ${format}
-Tema/produto: ${topic}
-
-Escreva o conteúdo pronto pra usar, em português do Brasil, seguindo o tom de voz da conta. Se for Reel, inclua roteiro curto (cenas) + legenda. Se for carrossel, liste os 5 slides. Seja direto, sem introduções nem explicações extras — só o conteúdo final.`;
-
-  try{
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-    const data = await response.json();
-    const text = (data.content || []).map(b => b.text || '').join('\n').trim();
-    resultBox.textContent = text || 'Não recebi conteúdo. Tenta de novo.';
-    document.getElementById('genSaveRow').style.display = text ? 'flex' : 'none';
-    document.getElementById('genImageRow').style.display = text ? 'block' : 'none';
-    resultBox.dataset.generated = text;
-  }catch(e){
-    resultBox.textContent = 'Erro ao gerar: ' + (e.message || e) + ' — abre o console do navegador (F12) pra ver mais detalhes.';
-    console.error(e);
-  }
+    try{
+          const response = await fetch('https://instagram-proxy-neon.vercel.app/api/generate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                            accountName: acc.name,
+                            niche: acc.niche,
+                            tone: acc.tone,
+                            format: format,
+                            topic: topic
+                  })
+          });
+          const data = await response.json();
+          if(data.error){ throw new Error(data.error); }
+          const text = data.text || '';
+          resultBox.textContent = text || 'Nao recebi conteudo. Tenta de novo.';
+          document.getElementById('genSaveRow').style.display = text ? 'flex' : 'none';
+          document.getElementById('genImageRow').style.display = text ? 'block' : 'none';
+          resultBox.dataset.generated = text;
+    }catch(e){
+          resultBox.textContent = 'Erro ao gerar: ' + (e.message || e);
+          console.error(e);
+    }
 });
-
 document.getElementById('genSaveBtn').addEventListener('click', async ()=>{
   const acc = accounts.find(a=>a.id===activeAccountId);
   const format = document.getElementById('genFormat').value;
