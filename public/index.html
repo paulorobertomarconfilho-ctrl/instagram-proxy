@@ -701,6 +701,7 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
   const imageUrl = document.getElementById('genImageUrl').value.trim();
   const manualText = document.getElementById('genManualText').value.trim();
   const caption = manualText || document.getElementById('genResult').dataset.generated || '';
+  const format = document.getElementById('genFormat').value;
 
   if(!acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
@@ -725,7 +726,8 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
         igId: acc.igId,
         token: acc.igToken,
         imageUrl: imageUrl,
-        caption: caption
+        caption: caption,
+        mediaType: format === 'Story' ? 'STORIES' : 'IMAGE'
       })
     });
     const data = await proxyRes.json();
