@@ -244,7 +244,6 @@
 </div>
 
 <div class="section-label">Contas em teste</div>
-<div class="filter-pills" id="filterPills"></div>
 <div class="lanes" id="lanes"></div>
 
 <div class="section-label" style="margin-top:20px;">Conteúdo gerado, por dia</div>
@@ -369,30 +368,6 @@ const LANE_COLORS = ['#7C3AED','#EC4899','#F59E0B','#10B981','#3B82F6','#F43F5E'
 let accounts = [];
 let logEntries = [];
 let activeAccountId = null;
-let activeFilter = 'todas';
-
-function renderFilterPills(){
-  const el = document.getElementById('filterPills');
-  const counts = {
-    todas: accounts.length,
-    testando: accounts.filter(a=>a.status==='testando').length,
-    vencedor: accounts.filter(a=>a.status==='vencedor').length,
-    pausado: accounts.filter(a=>a.status==='pausado').length
-  };
-  const labels = { todas:'Todas', testando:'Testando', vencedor:'Vencedor', pausado:'Pausado' };
-  el.innerHTML = Object.keys(labels).map(key => `
-    <button class="filter-pill ${activeFilter===key?'active':''}" data-filter="${key}">
-      ${labels[key]} <span class="count">${counts[key]}</span>
-    </button>
-  `).join('');
-  el.querySelectorAll('[data-filter]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      activeFilter = btn.getAttribute('data-filter');
-      renderFilterPills();
-      renderLanes();
-    });
-  });
-}
 
 // Camada de armazenamento universal: usa window.storage aqui no chat,
 // e localStorage automaticamente quando a ferramenta está hospedada (fora do chat).
@@ -426,11 +401,9 @@ async function loadData(){
   if(accounts.length === 0){
     accounts = [{
       id: 'seed-1', name:'@achadosdachina.br', niche:'Importação da China, achadinhos',
-      tone:'Descontraído e direto (gírias, emojis)', status:'testando',
-      seguidores:'', posts:'', engajamento:''
+      tone:'Descontraído e direto (gírias, emojis)'
     }];
   }
-  renderFilterPills();
   renderLanes();
   renderLog();
 }
@@ -452,63 +425,34 @@ function colorFor(id){
 function renderLanes(){
   const el = document.getElementById('lanes');
   el.innerHTML = '';
-  const visibleAccounts = activeFilter === 'todas' ? accounts : accounts.filter(a=>a.status===activeFilter);
-  visibleAccounts.forEach(acc=>{
-    const div = document.createElement('div');
-    div.className = 'lane';
-    const statusClass = acc.status === 'vencedor' ? 'status-vencedor' : (acc.status === 'pausado' ? 'status-pausado' : 'status-testando');
-    const statusLabel = acc.status === 'vencedor' ? 'Vencedor' : (acc.status === 'pausado' ? 'Pausado' : 'Testando');
-    div.innerHTML = `
-      <div class="pin" style="background:${colorFor(acc.id)}"></div>
-      <div class="lane-top">
-        <div>
-          <h3>${escapeHtml(acc.name)}</h3>
-          <div class="niche">${escapeHtml(acc.niche)}</div>
-        </div>
-        <span class="status-pill ${statusClass}">${statusLabel}</span>
-      </div>
-      <div class="stats">
-        <div class="stat"><label>Seguidores</label><input data-field="seguidores" data-id="${acc.id}" value="${acc.seguidores||''}" placeholder="0"></div>
-        <div class="stat"><label>Posts/semana</label><input data-field="posts" data-id="${acc.id}" value="${acc.posts||''}" placeholder="0"></div>
-        <div class="stat wide"><label>Engajamento (obs.)</label><input data-field="engajamento" data-id="${acc.id}" value="${acc.engajamento||''}" placeholder="Ex: reels rodam, carrossel não"></div>
-      </div>
-      <select class="status-select" data-status-id="${acc.id}">
-        <option value="testando" ${acc.status==='testando'?'selected':''}>Testando</option>
-        <option value="vencedor" ${acc.status==='vencedor'?'selected':''}>Vencedor</option>
-        <option value="pausado" ${acc.status==='pausado'?'selected':''}>Pausado</option>
-      </select>
-      <div class="lane-actions">
-        <button class="btn btn-primary" data-gen-id="${acc.id}">Gerar conteúdo</button>
-        <button class="btn btn-ghost" data-del-id="${acc.id}">Remover</button>
-      </div>
-      <div class="connect-row">
-        <span class="connect-dot ${acc.igToken ? 'on' : ''}"></span>
-        <button class="connect-link" data-connect-id="${acc.id}">${acc.igToken ? 'Instagram conectado' : 'Conectar Instagram'}</button>
-      </div>
-    `;
-    el.appendChild(div);
-  });
-  const addDiv = document.createElement('div');
-  addDiv.className = 'add-lane';
-  addDiv.id = 'addLaneBtn';
-  addDiv.textContent = '+ Nova conta';
-  el.appendChild(addDiv);
-
-  el.querySelectorAll('input[data-field]').forEach(inp=>{
-    inp.addEventListener('change', e=>{
-      const id = e.target.getAttribute('data-id');
-      const field = e.target.getAttribute('data-field');
-      const acc = accounts.find(a=>a.id===id);
-      if(acc){ acc[field] = e.target.value; persistAccounts(); }
+    accounts.forEach(acc=>{
+          const div = document.createElement('div');
+          div.className = 'lane';
+          div.innerHTML = `
+                <div class="pin" style="background:${colorFor(acc.id)}"></div>
+                      <div class="lane-top">
+                              <div>
+                                        <h3>${escapeHtml(acc.name)}</h3>
+                                                  <div class="niche">${escapeHtml(acc.niche)}</div>
+                                                          </div>
+                                                                </div>
+                                                                      <div class="lane-actions">
+                                                                              <button class="btn btn-primary" data-gen-id="${acc.id}">Gerar conteúdo</button>
+                                                                                      <button class="btn btn-ghost" data-del-id="${acc.id}">Remover</button>
+                                                                                            </div>
+                                                                                                  <div class="connect-row">
+                                                                                                          <span class="connect-dot ${acc.igToken ? 'on' : ''}"></span>
+                                                                                                                  <button class="connect-link" data-connect-id="${acc.id}">${acc.igToken ? 'Instagram conectado' : 'Conectar Instagram'}</button>
+                                                                                                                        </div>
+                                                                                                                            `;
+          el.appendChild(div);
     });
-  });
-  el.querySelectorAll('select[data-status-id]').forEach(sel=>{
-    sel.addEventListener('change', e=>{
-      const id = e.target.getAttribute('data-status-id');
-      const acc = accounts.find(a=>a.id===id);
-      if(acc){ acc.status = e.target.value; persistAccounts(); renderFilterPills(); renderLanes(); }
-    });
-  });
+    const addDiv = document.createElement('div');
+    addDiv.className = 'add-lane';
+    addDiv.id = 'addLaneBtn';
+    addDiv.textContent = '+ Nova conta';
+    el.appendChild(addDiv);
+  
   el.querySelectorAll('[data-gen-id]').forEach(btn=>{
     btn.addEventListener('click', e=>{
       activeAccountId = e.target.getAttribute('data-gen-id');
@@ -543,7 +487,6 @@ function renderLanes(){
       const id = e.target.getAttribute('data-del-id');
       accounts = accounts.filter(a=>a.id!==id);
       persistAccounts();
-      renderFilterPills();
       renderLanes();
     });
   });
@@ -603,10 +546,9 @@ document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
   if(!name){ return; }
   accounts.push({
     id: 'acc-' + Date.now(),
-    name, niche, tone, status:'testando', seguidores:'', posts:'', engajamento:''
+          name, niche, tone
   });
   await persistAccounts();
-  renderFilterPills();
   renderLanes();
   closeOverlay('overlayAccount');
 });
@@ -616,7 +558,6 @@ document.getElementById('saveConnectBtn').addEventListener('click', async ()=>{
   acc.igId = document.getElementById('connIgId').value.replace(/\s+/g, '');
   acc.igToken = document.getElementById('connToken').value.replace(/\s+/g, '');
   await persistAccounts();
-  renderFilterPills();
   renderLanes();
   closeOverlay('overlayConnect');
 });
@@ -847,7 +788,6 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
   logEntries = [];
   await persistAccounts();
   await persistLog();
-  renderFilterPills();
   renderLanes();
   renderLog();
 });
