@@ -40,12 +40,32 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: createData.error.message || 'Erro ao criar o container de mídia.' });
     }
 
+    const creationId = createData.id;
+
+    // Espera o container terminar de processar (até ~15 segundos)
+    let ready = false;
+    for (let i = 0; i < 8; i++) {
+      const statusRes = await fetch(`https://graph.instagram.com/v21.0/${creationId}?fields=status_code&access_token=${token}`);
+      const statusData = await statusRes.json();
+      if (statusData.status_code === 'FINISHED') {
+        ready = true;
+        break;
+      }
+      if (statusData.status_code === 'ERROR') {
+        return res.status(400).json({ error: 'A imagem falhou ao processar no Instagram. Confira se o link é público e termina em .jpg/.png.' });
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    if (!ready) {
+      return res.status(400).json({ error: 'A imagem demorou demais pra processar. Tenta de novo em alguns segundos.' });
+    }
+
     // Etapa 2: publicar o container
     const publishRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media_publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        creation_id: createData.id,
+        creation_id: creationId,
         access_token: token
       })
     });
