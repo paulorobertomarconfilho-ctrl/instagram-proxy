@@ -25,11 +25,13 @@ async function writeQueue(list){
     access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
-    allowOverwrite: true
+    allowOverwrite: true,
+    cacheControlMaxAge: 0
   });
 }
 
 async function publishToInstagram({ igId, token, imageUrl, caption, mediaType }){
+  const createUrl = 'https://graph.instagram.com/v21.0/' + igId + '/media';
   const createBody = { image_url: imageUrl, access_token: token };
   if(mediaType === 'STORIES'){
     createBody.media_type = 'STORIES';
@@ -37,7 +39,7 @@ async function publishToInstagram({ igId, token, imageUrl, caption, mediaType })
     createBody.caption = caption || '';
   }
 
-const createRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media`, {
+const createRes = await fetch(createUrl, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(createBody)
@@ -50,7 +52,8 @@ const createRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media`,
 
 let ready = false;
   for(let i = 0; i < 8; i++){
-    const statusRes = await fetch(`https://graph.instagram.com/v21.0/${creationId}?fields=status_code&access_token=${token}`);
+    const statusUrl = 'https://graph.instagram.com/v21.0/' + creationId + '?fields=status_code&access_token=' + token;
+    const statusRes = await fetch(statusUrl);
     const statusData = await statusRes.json();
     if(statusData.status_code === 'FINISHED'){ ready = true; break; }
     if(statusData.status_code === 'ERROR'){
@@ -62,11 +65,12 @@ let ready = false;
     throw new Error('A imagem demorou demais pra processar.');
   }
 
-const publishRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media_publish`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ creation_id: creationId, access_token: token })
-});
+const publishUrl = 'https://graph.instagram.com/v21.0/' + igId + '/media_publish';
+  const publishRes = await fetch(publishUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creation_id: creationId, access_token: token })
+  });
   const publishData = await publishRes.json();
   if(publishData.error){
     throw new Error(publishData.error.message || 'Erro ao publicar.');
@@ -78,7 +82,7 @@ export default async function handler(req, res){
   const auth = req.headers.authorization || '';
   const secretParam = (req.query && req.query.secret) || '';
   const expected = process.env.CRON_SECRET;
-  const authorized = expected && (auth === `Bearer ${expected}` || secretParam === expected);
+  const authorized = expected && (auth === 'Bearer ' + expected || secretParam === expected);
 
 if(!authorized){
   return res.status(401).json({ error: 'Nao autorizado.' });
