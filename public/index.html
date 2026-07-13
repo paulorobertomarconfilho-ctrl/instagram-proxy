@@ -335,15 +335,20 @@
       <label>Ou cole aqui o texto gerado no chat</label>
       <textarea id="genManualText" placeholder="Cola aqui a legenda/roteiro gerado no chat, se preferir"></textarea>
     </div>
-    <div class="field" id="genImageRow" style="margin-top:14px;">
-      <label>Link público da imagem (obrigatório pra publicar)</label>
-      <input id="genImageUrl" placeholder="https://exemplo.com/foto.jpg">
-      <div style="margin-top:8px;">
-        <input type="file" id="genImageFile" accept="image/*" style="display:none;">
-        <button class="btn btn-ghost" id="genImageUploadBtn" type="button" style="font-size:12px;padding:8px 14px;">📷 Enviar imagem do celular/computador</button>
-        <span id="uploadStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
+        <div class="field" id="genImageRow" style="margin-top:14px;">
+                <label>Link público da imagem (obrigatório pra publicar)</label>
+              <input id="genImageUrl" placeholder="https://exemplo.com/foto.jpg">
+              <div style="margin-top:8px;">
+                      <input type="file" id="genImageFile" accept="image/*" multiple style="display:none;">
+                      <button class="btn btn-ghost" id="genImageUploadBtn" type="button" style="font-size:12px;padding:8px 14px;">📷 Enviar imagens do celular/computador</button>
+                      <span id="uploadStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
+              </div>
+              <div id="imageGallery" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"></div>
+        </div>
+      <div class="field" id="genLinksRow" style="margin-top:14px;">
+            <label>Links de produtos (opcional)</label>
+            <textarea id="genProductLinks" placeholder="Um link por linha" style="min-height:50px;"></textarea>
       </div>
-    </div>
     <div class="field" id="genScheduleRow" style="margin-top:14px;">
       <label>Agendar para (opcional)</label>
     <input type="datetime-local" id="genScheduleAt">
