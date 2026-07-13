@@ -250,6 +250,9 @@
 <div class="section-label" style="margin-top:20px;">Conteúdo gerado, por dia</div>
 <div class="cal-scroll" id="log"></div>
 
+  <div class="section-label" style="margin-top:20px;">Agendados</div>
+  <div class="log" id="scheduledList"></div>
+
 <!-- Modal: nova conta -->
 <div class="overlay" id="overlayAccount">
   <div class="modal" style="position:relative;">
@@ -341,8 +344,13 @@
         <span id="uploadStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
       </div>
     </div>
+    <div class="field" id="genScheduleRow" style="margin-top:14px;">
+      <label>Agendar para (opcional)</label>
+    <input type="datetime-local" id="genScheduleAt">
+    </div>
     <div class="modal-actions" id="genSaveRow" style="display:flex;">
       <button class="btn btn-ghost" id="genSaveBtn">Salvar no registro</button>
+      <button class="btn btn-ghost" id="genScheduleBtn">Agendar publicação</button>
       <button class="btn btn-gold" id="genPublishBtn">Publicar no Instagram</button>
     </div>
     <div class="publish-status" id="publishStatus"></div>
@@ -507,6 +515,7 @@ function renderLanes(){
       document.getElementById('genImageUrl').value = '';
       document.getElementById('uploadStatus').textContent = '';
       document.getElementById('genImageFile').value = '';
+      document.getElementById('genScheduleAt').value = '';
       document.getElementById('publishStatus').className = 'publish-status';
       document.getElementById('noAiNotice').style.display = hasClaudeStorage ? 'none' : 'block';
       document.getElementById('overlayGen').classList.add('show');
@@ -798,6 +807,113 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
   renderLanes();
   renderLog();
 });
+
+  document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
+    const acc = accounts.find(a=>a.id===activeAccountId);
+    const statusBox = document.getElementById('publishStatus');
+    const imageUrl = document.getElementById('genImageUrl').value.trim();
+    const manualText = document.getElementById('genManualText').value.trim();
+    const caption = manualText || document.getElementById('genResult').dataset.generated || '';
+    const format = document.getElementById('genFormat').value;
+    const scheduleAt = document.getElementById('genScheduleAt').value;
+
+    if(!acc.igId || !acc.igToken){
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Conecta o Instagram primeiro (link "Conectar Instagram" no card da conta).';
+      return;
+    }
+    if(!imageUrl){
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Cola o link publico da imagem antes de agendar.';
+      return;
+    }
+    if(!scheduleAt){
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Escolhe a data e hora do agendamento.';
+      return;
+    }
+    if(new Date(scheduleAt).getTime() <= Date.now()){
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Escolhe um horario no futuro.';
+      return;
+    }
+
+    statusBox.className = 'publish-status';
+    statusBox.style.display = 'block';
+    statusBox.innerHTML = '<span class="loading-dots">Agendando</span>';
+
+    try{
+      const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          igId: acc.igId,
+          token: acc.igToken,
+          imageUrl: imageUrl,
+          caption: caption,
+          mediaType: format === 'Story' ? 'STORIES' : 'IMAGE',
+          scheduledFor: new Date(scheduleAt).toISOString(),
+          accountName: acc.name
+        })
+      });
+      const data = await res.json();
+      if(data.error){ throw new Error(data.error); }
+
+      statusBox.className = 'publish-status ok';
+      statusBox.textContent = 'Agendado! Vai publicar em ' + new Date(scheduleAt).toLocaleString('pt-BR') + '.';
+      loadScheduled();
+    }catch(e){
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Nao foi possivel agendar: ' + e.message;
+      console.error(e);
+    }
+  });
+
+  async function loadScheduled(){
+    try{
+      const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule');
+      const data = await res.json();
+      renderScheduled(data.items || []);
+    }catch(e){
+      console.error('Falha ao carregar agendamentos', e);
+    }
+  }
+
+  function renderScheduled(items){
+    const el = document.getElementById('scheduledList');
+    const pending = items.filter(i => i.status === 'pending');
+    if(pending.length === 0){
+      el.innerHTML = '<div class="log-empty">Nada agendado ainda.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    pending.forEach(item => {
+      const when = new Date(item.scheduledFor).toLocaleString('pt-BR');
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      div.innerHTML = `
+      <span class="mono" style="font-size:11px;color:var(--slate);">${when}</span>
+      <span class="tag" style="background:var(--purple)">${escapeHtml(item.accountName || '')}</span>
+      <span class="caption"><span class="format">${item.mediaType === 'STORIES' ? 'Story' : 'Post'}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
+      <button class="btn btn-ghost" data-cancel-id="${item.id}" style="padding:6px 12px;font-size:11.5px;">Cancelar</button>
+      `;
+      el.appendChild(div);
+    });
+    el.querySelectorAll('[data-cancel-id]').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const id = e.target.getAttribute('data-cancel-id');
+        if(!confirm('Cancelar esse agendamento?')) return;
+        try{
+          await fetch('https://instagram-proxy-neon.vercel.app/api/schedule?id=' + encodeURIComponent(id), { method: 'DELETE' });
+          loadScheduled();
+        }catch(err){
+          alert('Erro ao cancelar: ' + err.message);
+        }
+      });
+    });
+  }
+
+  loadScheduled();
 
 loadData();
 </script>
