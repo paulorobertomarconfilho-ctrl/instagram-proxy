@@ -669,7 +669,7 @@ document.getElementById('genSaveBtn').addEventListener('click', async ()=>{
   const format = document.getElementById('genFormat').value;
   const topic = document.getElementById('genTopic').value.trim();
   const manualText = document.getElementById('genManualText').value.trim();
-  const content = manualText || document.getElementById('genResult').dataset.generated || '';
+      const content = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   logEntries.push({
     date: new Date().toLocaleDateString('pt-BR'),
     accountName: acc.name,
@@ -760,7 +760,7 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
   const statusBox = document.getElementById('publishStatus');
   const imageUrl = document.getElementById('genImageUrl').value.trim();
   const manualText = document.getElementById('genManualText').value.trim();
-  const caption = manualText || document.getElementById('genResult').dataset.generated || '';
+    const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
 
   if(!acc.igId || !acc.igToken){
@@ -821,7 +821,7 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
     const statusBox = document.getElementById('publishStatus');
     const imageUrl = document.getElementById('genImageUrl').value.trim();
     const manualText = document.getElementById('genManualText').value.trim();
-    const caption = manualText || document.getElementById('genResult').dataset.generated || '';
+        const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
     const format = document.getElementById('genFormat').value;
     const scheduleAt = document.getElementById('genScheduleAt').value;
 
