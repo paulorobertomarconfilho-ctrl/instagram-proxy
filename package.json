@@ -2,5 +2,8 @@
   "name": "instagram-publish-proxy",
   "version": "1.0.0",
   "description": "Servidor intermediário para publicar no Instagram via Graph API, contornando bloqueio de CORS do navegador.",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@vercel/blob": "^2.6.1"
+  }
 }
