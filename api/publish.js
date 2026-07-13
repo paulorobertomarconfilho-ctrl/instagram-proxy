@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   try {
     // Etapa 1: criar o container de mídia
-    const createRes = await fetch(`https://graph.facebook.com/v25.0/${igId}/media`, {
+    const createRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     }
 
     // Etapa 2: publicar o container
-    const publishRes = await fetch(`https://graph.facebook.com/v25.0/${igId}/media_publish`, {
+    const publishRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media_publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
