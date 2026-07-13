@@ -24,7 +24,8 @@ async function writeQueue(list){
     access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
-    allowOverwrite: true
+    allowOverwrite: true,
+    cacheControlMaxAge: 0
   });
 }
 
