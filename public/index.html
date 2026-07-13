@@ -505,6 +505,8 @@ function renderLanes(){
       document.getElementById('genResult').style.display = 'none';
       document.getElementById('genManualText').value = '';
       document.getElementById('genImageUrl').value = '';
+      document.getElementById('uploadStatus').textContent = '';
+      document.getElementById('genImageFile').value = '';
       document.getElementById('publishStatus').className = 'publish-status';
       document.getElementById('noAiNotice').style.display = hasClaudeStorage ? 'none' : 'block';
       document.getElementById('overlayGen').classList.add('show');
