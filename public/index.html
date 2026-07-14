@@ -243,6 +243,29 @@
   .thumb-wrap{ position:relative; width:56px; height:56px; }
   .thumb-edit-btn{ position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:var(--purple); color:#fff; font-size:10px; cursor:pointer; line-height:1; padding:0; }
 
+  .ig-preview{
+    border:1px solid #dbdbdb; border-radius:14px; overflow:hidden; background:#fff;
+    max-width:300px; margin:0 auto; box-shadow:0 4px 16px rgba(0,0,0,0.10);
+  }
+  .ig-preview-header{ display:flex; align-items:center; gap:8px; padding:9px 11px; }
+  .ig-preview-avatar{
+    width:30px;height:30px;border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,var(--purple),var(--red));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;
+  }
+  .ig-preview-username{ font-weight:700; font-size:12.5px; color:#111; }
+  .ig-preview-media{
+    width:100%; background:#efefef; position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .ig-preview-media img, .ig-preview-media video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ig-preview-media .placeholder{ color:#8e8e8e; font-size:11.5px; text-align:center; padding:20px; line-height:1.4; }
+  .ig-preview-badge{ position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; font-size:9.5px; padding:2px 7px; border-radius:6px; font-weight:700; letter-spacing:0.02em; }
+  .ig-preview-actions{ display:flex; align-items:center; gap:13px; padding:9px 11px 2px; font-size:18px; color:#111; }
+  .ig-preview-actions span:last-child{ margin-left:auto; }
+  .ig-preview-caption{ padding:5px 11px 13px; font-size:12px; line-height:1.4; color:#111; }
+  .ig-preview-caption b{ margin-right:5px; }
+
   @media (max-width: 640px){
     body{ padding:0; }
     .app-frame{ border-radius:0; min-height:100vh; }
@@ -474,6 +497,20 @@
 
       <!-- Etapa 3: publicar -->
       <div class="step-panel" data-step-panel="3">
+        <div class="field" id="igPreviewWrap">
+          <label>Prévia de como vai ficar</label>
+          <div class="ig-preview" id="igPreview">
+            <div class="ig-preview-header">
+              <div class="ig-preview-avatar" id="igPreviewAvatar">?</div>
+              <div class="ig-preview-username" id="igPreviewUsername">@sua_conta</div>
+            </div>
+            <div class="ig-preview-media" id="igPreviewMedia">
+              <div class="placeholder">Escolhe uma imagem ou vídeo na etapa "2. Imagem" pra ver a prévia aqui</div>
+            </div>
+            <div class="ig-preview-actions"><span>❤️</span><span>💬</span><span>✈️</span><span>🔖</span></div>
+            <div class="ig-preview-caption" id="igPreviewCaption"></div>
+          </div>
+        </div>
         <div class="field" id="genLinksRow">
           <label>Links de produtos (opcional)</label>
           <textarea id="genProductLinks" placeholder="Um link por linha" style="min-height:50px;"></textarea>
@@ -568,6 +605,48 @@ function setGenStep(step){
     p.classList.toggle('active', p.getAttribute('data-step-panel') === step);
   });
   document.querySelector('.gen-body').scrollTop = 0;
+  if(step === '3') renderIgPreview();
+}
+
+function renderIgPreview(){
+  const wrap = document.getElementById('igPreview');
+  if(!wrap) return;
+  const acc = accounts.find(a=>a.id===activeAccountId);
+  const format = document.getElementById('genFormat').value;
+  const imageUrl = document.getElementById('genImageUrl').value.trim();
+  const videoUrl = document.getElementById('genVideoUrl').value.trim();
+  const manualText = document.getElementById('genManualText').value.trim();
+  const generated = document.getElementById('genResult').dataset.generated || '';
+  const caption = appendProductLinks(manualText || generated);
+
+  const rawName = acc ? acc.name : '@sua_conta';
+  const username = rawName.replace(/^@/, '') || 'sua_conta';
+  document.getElementById('igPreviewUsername').textContent = '@' + username;
+  document.getElementById('igPreviewAvatar').textContent = username.slice(0,2).toUpperCase();
+
+  const target = getTargetAspect(format);
+  const mediaEl = document.getElementById('igPreviewMedia');
+  mediaEl.style.aspectRatio = target.w + ' / ' + target.h;
+
+  const badge = format === 'Story' ? 'Story' : (format.startsWith('Reel') ? 'Reel' : (format.startsWith('Carrossel') ? 'Carrossel' : 'Post'));
+
+  let mediaInner;
+  if(videoUrl){
+    mediaInner = '<video src="' + videoUrl + '" muted loop autoplay playsinline></video>';
+  } else if(imageUrl){
+    mediaInner = '<img src="' + imageUrl + '">';
+  } else {
+    mediaInner = '<div class="placeholder">Escolhe uma imagem ou vídeo na etapa "2. Imagem" pra ver a prévia aqui</div>';
+  }
+  mediaEl.innerHTML = mediaInner + '<span class="ig-preview-badge">' + badge + '</span>';
+
+  const capEl = document.getElementById('igPreviewCaption');
+  if(format === 'Story'){
+    capEl.style.display = 'none';
+  } else {
+    capEl.style.display = 'block';
+    capEl.innerHTML = '<b>' + escapeHtml(username) + '</b>' + escapeHtml(caption).replace(/\n/g, '<br>');
+  }
 }
 
 function renderLanes(){
@@ -697,7 +776,7 @@ function renderLog(){
           </div>
         ` : '';
         return `
-        <div class="cal-card" style="border-left-color:${entry.color}" title="Clique pra reabrir e reusar este post">
+        <div class="cal-card" style="border-left-color:${entry.color}">
           <div class="cal-card-top">
             <span class="cal-tag" style="background:${entry.color}">${escapeHtml(entry.accountName)}</span>
             ${entry.time ? `<span class="cal-time">🕒 ${escapeHtml(entry.time)}</span>` : ''}
@@ -711,9 +790,6 @@ function renderLog(){
       </div>
     `;
     el.appendChild(dayDiv);
-  });
-  el.querySelectorAll('.cal-card').forEach((card, idx) => {
-    card.addEventListener('click', () => openLogEntryForReuse(flatEntries[idx]));
   });
   el.querySelectorAll('.metrics-auto').forEach(container=>{
     const mediaId = container.getAttribute('data-metrics-media');
@@ -773,6 +849,10 @@ document.querySelectorAll('[data-goto-step]').forEach(btn=>{
 document.querySelectorAll('.step-tab').forEach(tab=>{
   tab.addEventListener('click', ()=> setGenStep(tab.getAttribute('data-step')));
 });
+['genManualText','genProductLinks'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderIgPreview);
+});
+document.getElementById('genFormat').addEventListener('change', renderIgPreview);
 
 document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('accName').value.trim();
@@ -830,6 +910,7 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
     const text = data.text || '';
     resultBox.textContent = text || 'Nao recebi conteudo. Tenta de novo.';
     resultBox.dataset.generated = text;
+    renderIgPreview();
   }catch(e){
     resultBox.textContent = 'Erro ao gerar: ' + (e.message || e);
     console.error(e);
@@ -882,6 +963,7 @@ document.getElementById('genVideoFile').addEventListener('change', async (e)=>{
     uploadedVideo = { url: blob.url, name: file.name };
     document.getElementById('genVideoUrl').value = blob.url;
     renderVideoInfo();
+    renderIgPreview();
     statusEl.textContent = 'Vídeo pronto: ' + file.name;
   }catch(err){
     statusEl.textContent = 'Erro ao enviar vídeo: ' + err.message;
@@ -949,6 +1031,7 @@ function renderVideoInfo(){
     document.getElementById('genVideoFile').value = '';
     document.getElementById('videoStatus').textContent = '';
     renderVideoInfo();
+    renderIgPreview();
   });
   row.appendChild(label);
   row.appendChild(removeBtn);
@@ -1099,6 +1182,7 @@ function renderGallery(){
       document.getElementById('genImageUrl').value = img.url;
       renderGallery();
       renderTagsInfo();
+      renderIgPreview();
     });
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
@@ -1280,6 +1364,7 @@ document.getElementById('editSaveBtn').addEventListener('click', async ()=>{
 document.getElementById('genImageUrl').addEventListener('input', ()=>{
   renderGallery();
   renderTagsInfo();
+  renderIgPreview();
 });
 
 document.getElementById('genImageFile').addEventListener('change', async (e)=>{
@@ -1315,6 +1400,7 @@ document.getElementById('genImageFile').addEventListener('change', async (e)=>{
       uploadedImages.push({ url: data.url });
       if(!document.getElementById('genImageUrl').value.trim()){
         document.getElementById('genImageUrl').value = data.url;
+        renderIgPreview();
       }
       renderGallery();
     }catch(err){
