@@ -21,13 +21,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Metodo nao permitido. Use POST.' });
   }
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(500).json({ error: 'BLOB_READ_WRITE_TOKEN nao esta visivel neste runtime.' });
+  if (!process.env.VIDEO_BLOB_READ_WRITE_TOKEN) {
+    return res.status(500).json({ error: 'VIDEO_BLOB_READ_WRITE_TOKEN nao esta visivel neste runtime.' });
   }
 
   try {
     const jsonResponse = await handleUpload({
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token: process.env.VIDEO_BLOB_READ_WRITE_TOKEN,
       body: req.body,
       request: req,
       onBeforeGenerateToken: async () => {
