@@ -1004,6 +1004,31 @@ function openScheduleForEdit(item){
   document.getElementById('overlayGen').classList.add('show');
 }
 
+function resetGenFormForNewPost(){
+  document.getElementById('genFormat').selectedIndex = 0;
+  document.getElementById('genTopic').value = '';
+  document.getElementById('genResult').style.display = 'none';
+  document.getElementById('genResult').dataset.generated = '';
+  document.getElementById('genManualText').value = '';
+  document.getElementById('genImageUrl').value = '';
+  document.getElementById('uploadStatus').textContent = '';
+  document.getElementById('genImageFile').value = '';
+  uploadedImages = [];
+  imageTags = {};
+  document.getElementById('imageGallery').innerHTML = '';
+  document.getElementById('imageTagsInfo').textContent = '';
+  document.getElementById('imageEditor').style.display = 'none';
+  uploadedVideo = null;
+  document.getElementById('genVideoUrl').value = '';
+  document.getElementById('genVideoFile').value = '';
+  document.getElementById('videoStatus').textContent = '';
+  renderVideoInfo();
+  document.getElementById('genProductLinks').value = '';
+  document.getElementById('genScheduleAt').value = '';
+  exitEditMode();
+  setGenStep(1);
+}
+
 function appendProductLinks(caption){
   const linksRaw = document.getElementById('genProductLinks').value.trim();
   if(!linksRaw) return caption;
@@ -1336,6 +1361,8 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
       await persistLog();
       renderLog();
     }
+
+    setTimeout(()=> resetGenFormForNewPost(), 1500);
   }catch(e){
     statusBox.className = 'publish-status err';
     statusBox.textContent = 'Não foi possível publicar: ' + e.message;
@@ -1413,12 +1440,16 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
     const data = await res.json();
     if(data.error){ throw new Error(data.error); }
 
+    const wasEditing = !!editingScheduleId;
     statusBox.className = 'publish-status ok';
     statusBox.textContent = editingScheduleId
       ? 'Agendamento atualizado! Vai publicar em ' + new Date(scheduleAt).toLocaleString('pt-BR') + '.'
       : 'Agendado! Vai publicar em ' + new Date(scheduleAt).toLocaleString('pt-BR') + '.';
     exitEditMode();
     loadScheduled();
+    if(!wasEditing){
+      setTimeout(()=> resetGenFormForNewPost(), 1500);
+    }
   }catch(e){
     statusBox.className = 'publish-status err';
     statusBox.textContent = 'Nao foi possivel agendar: ' + e.message;
