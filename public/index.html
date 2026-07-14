@@ -1176,7 +1176,7 @@ function appendProductLinks(caption){
   if(!linksRaw) return caption;
   const links = linksRaw.split('\n').map(l=>l.trim()).filter(Boolean);
   if(links.length === 0) return caption;
-  return (caption ? caption + '\n\n' : '') + 'Produtos:\n' + links.join('\n');
+  return (caption ? caption + '\n\n' : '') + links.join('\n');
 }
 
 function renderTagsInfo(){
