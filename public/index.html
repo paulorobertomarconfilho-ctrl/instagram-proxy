@@ -206,6 +206,15 @@
   .step-panel.active{ display:block; }
   .step-nav{ display:flex; justify-content:space-between; gap:8px; margin-top:22px; }
 
+  .edit-canvas-wrap{ position:relative; display:inline-block; max-width:100%; }
+  .edit-canvas-wrap canvas{ max-width:100%; border-radius:10px; display:block; cursor:crosshair; }
+  .edit-controls{ display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; }
+  .edit-controls label{ font-size:10.5px; color:var(--ink-soft); display:flex; flex-direction:column; gap:2px; }
+  .edit-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  .tag-pin{ position:absolute; transform:translate(-50%,-50%); background:rgba(33,27,51,0.85); color:#fff; font-size:10px; padding:2px 6px; border-radius:999px; white-space:nowrap; }
+  .thumb-wrap{ position:relative; width:56px; height:56px; }
+  .thumb-edit-btn{ position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:var(--purple); color:#fff; font-size:10px; cursor:pointer; line-height:1; padding:0; }
+
   @media (max-width: 640px){
     body{ padding:0; }
     .app-frame{ border-radius:0; min-height:100vh; }
@@ -370,7 +379,37 @@
             <span id="uploadStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
           </div>
           <div id="imageGallery" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"></div>
+          <div id="imageTagsInfo" style="font-size:11.5px;color:var(--ink-soft);margin-top:8px;"></div>
         </div>
+
+        <div class="field" id="imageEditor" style="display:none;margin-top:6px;border-top:1.5px solid var(--line);padding-top:16px;">
+          <label>Editar imagem</label>
+          <div class="edit-canvas-wrap">
+            <canvas id="editCanvas"></canvas>
+            <div id="tagPinsLayer" style="position:absolute;inset:0;pointer-events:none;"></div>
+          </div>
+          <div class="edit-controls">
+            <label>Brilho <input type="range" id="editBrightness" min="-100" max="100" value="0"></label>
+            <label>Contraste <input type="range" id="editContrast" min="-100" max="100" value="0"></label>
+            <label>Saturação <input type="range" id="editSaturation" min="-100" max="100" value="0"></label>
+          </div>
+          <div class="edit-row">
+            <input id="editTextInput" placeholder="Texto pra colocar na foto" style="flex:1;min-width:140px;border:1.5px solid #E8E2F7;background:var(--paper-2);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13.5px;">
+            <input type="color" id="editTextColor" value="#ffffff">
+            <input type="range" id="editTextSize" min="16" max="80" value="32" title="Tamanho do texto">
+            <button class="btn btn-ghost" type="button" id="editAddTextModeBtn" style="font-size:11.5px;">✍️ Clicar pra colocar texto</button>
+          </div>
+          <div class="edit-row">
+            <button class="btn btn-ghost" type="button" id="editAddTagModeBtn" style="font-size:11.5px;">🏷️ Clicar pra marcar pessoa</button>
+            <button class="btn btn-ghost" type="button" id="editUndoBtn" style="font-size:11.5px;">Desfazer último</button>
+            <span id="editModeHint" style="font-size:11px;color:var(--ink-soft);"></span>
+          </div>
+          <div class="modal-actions" style="justify-content:flex-start;margin-top:14px;">
+            <button class="btn btn-primary" type="button" id="editSaveBtn">Salvar edição</button>
+            <button class="btn btn-ghost" type="button" id="editCancelBtn">Cancelar</button>
+          </div>
+        </div>
+
         <div class="step-nav">
           <button class="btn btn-ghost" type="button" data-goto-step="1">← Conteúdo</button>
           <button class="btn btn-ghost" type="button" data-goto-step="3">Próximo: Publicar →</button>
@@ -382,6 +421,11 @@
         <div class="field" id="genLinksRow">
           <label>Links de produtos (opcional)</label>
           <textarea id="genProductLinks" placeholder="Um link por linha" style="min-height:50px;"></textarea>
+        </div>
+        <div class="field" id="genLocationRow">
+          <label>ID de localização no Instagram (opcional)</label>
+          <input id="genLocationId" placeholder="Ex: 106078477139028">
+          <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">O Instagram exige o ID numérico do local, não o nome. Com o tipo de conexão desta ferramenta não dá pra buscar automaticamente — encontre o ID testando o endpoint <span class="mono">/pages/search?q=NOME_DO_LOCAL</span> no <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> da Meta.</div>
         </div>
         <div class="field" id="genScheduleRow">
           <label>Agendar para (opcional)</label>
@@ -517,8 +561,12 @@ function renderLanes(){
       document.getElementById('uploadStatus').textContent = '';
       document.getElementById('genImageFile').value = '';
       document.getElementById('genScheduleAt').value = '';
+      document.getElementById('genLocationId').value = '';
       uploadedImages = [];
+      imageTags = {};
       document.getElementById('imageGallery').innerHTML = '';
+      document.getElementById('imageTagsInfo').textContent = '';
+      document.getElementById('imageEditor').style.display = 'none';
       document.getElementById('genProductLinks').value = '';
       document.getElementById('publishStatus').className = 'publish-status';
       setGenStep(1);
@@ -712,6 +760,7 @@ function cropImageToAspect(dataUrl, targetW, targetH){
 }
 
 let uploadedImages = [];
+let imageTags = {}; // { [url]: [{username,x,y}, ...] }
 
 function appendProductLinks(caption){
   const linksRaw = document.getElementById('genProductLinks').value.trim();
@@ -721,22 +770,199 @@ function appendProductLinks(caption){
   return (caption ? caption + '\n\n' : '') + 'Produtos:\n' + links.join('\n');
 }
 
+function renderTagsInfo(){
+  const el = document.getElementById('imageTagsInfo');
+  const url = document.getElementById('genImageUrl').value.trim();
+  const tags = imageTags[url] || [];
+  el.textContent = tags.length ? ('Marcado nesta foto: ' + tags.map(t=>'@'+t.username).join(', ')) : '';
+}
+
 function renderGallery(){
   const el = document.getElementById('imageGallery');
   el.innerHTML = '';
   const currentUrl = document.getElementById('genImageUrl').value.trim();
-  uploadedImages.forEach(img => {
-    const thumb = document.createElement('div');
+  uploadedImages.forEach((img, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
     const selected = img.url === currentUrl;
+    const thumb = document.createElement('div');
     thumb.style.cssText = 'width:56px;height:56px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid ' + (selected ? 'var(--purple)' : 'transparent') + ';';
     thumb.innerHTML = '<img src="' + img.url + '" style="width:100%;height:100%;object-fit:cover;display:block;">';
     thumb.addEventListener('click', () => {
       document.getElementById('genImageUrl').value = img.url;
       renderGallery();
+      renderTagsInfo();
     });
-    el.appendChild(thumb);
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'thumb-edit-btn';
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Editar / marcar pessoas';
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEditor(idx);
+    });
+    wrap.appendChild(thumb);
+    wrap.appendChild(editBtn);
+    el.appendChild(wrap);
   });
 }
+
+// ---- Editor de imagem: ajustes, texto e marcação de pessoas ----
+let editingIndex = null;
+let editOriginalImg = null;
+let editTexts = [];
+let editTags = [];
+let editMode = null; // 'text' | 'tag' | null
+
+function openEditor(idx){
+  editingIndex = idx;
+  const url = uploadedImages[idx].url;
+  editTexts = [];
+  editTags = (imageTags[url] || []).slice();
+  editMode = null;
+  document.getElementById('editBrightness').value = 0;
+  document.getElementById('editContrast').value = 0;
+  document.getElementById('editSaturation').value = 0;
+  document.getElementById('editModeHint').textContent = '';
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    editOriginalImg = img;
+    const canvas = document.getElementById('editCanvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    document.getElementById('imageEditor').style.display = 'block';
+    document.getElementById('imageEditor').scrollIntoView({behavior:'smooth', block:'nearest'});
+    redrawCanvas();
+    renderPins();
+  };
+  img.onerror = () => {
+    alert('Não deu pra carregar essa imagem pra editar (bloqueio do provedor). Tenta subir a foto de novo.');
+  };
+  img.src = url;
+}
+
+function redrawCanvas(){
+  const canvas = document.getElementById('editCanvas');
+  const ctx = canvas.getContext('2d');
+  const b = 1 + (document.getElementById('editBrightness').value / 100);
+  const c = 1 + (document.getElementById('editContrast').value / 100);
+  const s = 1 + (document.getElementById('editSaturation').value / 100);
+  ctx.filter = 'brightness(' + b + ') contrast(' + c + ') saturate(' + s + ')';
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(editOriginalImg, 0, 0, canvas.width, canvas.height);
+  ctx.filter = 'none';
+  editTexts.forEach(t=>{
+    ctx.fillStyle = t.color;
+    ctx.font = 'bold ' + t.size + 'px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t.text, t.x * canvas.width, t.y * canvas.height);
+  });
+}
+
+function renderPins(){
+  const layer = document.getElementById('tagPinsLayer');
+  layer.innerHTML = '';
+  editTags.forEach(t=>{
+    const pin = document.createElement('div');
+    pin.className = 'tag-pin';
+    pin.style.left = (t.x * 100) + '%';
+    pin.style.top = (t.y * 100) + '%';
+    pin.textContent = '@' + t.username;
+    layer.appendChild(pin);
+  });
+}
+
+['editBrightness','editContrast','editSaturation'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', redrawCanvas);
+});
+
+document.getElementById('editAddTextModeBtn').addEventListener('click', ()=>{
+  editMode = editMode === 'text' ? null : 'text';
+  document.getElementById('editModeHint').textContent = editMode === 'text' ? 'Clique na imagem pra colocar o texto.' : '';
+});
+document.getElementById('editAddTagModeBtn').addEventListener('click', ()=>{
+  editMode = editMode === 'tag' ? null : 'tag';
+  document.getElementById('editModeHint').textContent = editMode === 'tag' ? 'Clique na imagem onde a pessoa está.' : '';
+});
+
+document.getElementById('editCanvas').addEventListener('click', (e)=>{
+  if(!editMode) return;
+  const canvas = e.target;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+  if(editMode === 'text'){
+    const text = document.getElementById('editTextInput').value.trim();
+    if(!text){ alert('Escreve o texto primeiro.'); return; }
+    const color = document.getElementById('editTextColor').value;
+    const size = parseInt(document.getElementById('editTextSize').value, 10);
+    editTexts.push({ text, x, y, color, size });
+    redrawCanvas();
+  } else if(editMode === 'tag'){
+    const username = prompt('Nome de usuário do Instagram da pessoa (sem @):');
+    if(username && username.trim()){
+      editTags.push({ username: username.trim().replace(/^@/, ''), x, y });
+      renderPins();
+    }
+  }
+});
+
+document.getElementById('editUndoBtn').addEventListener('click', ()=>{
+  if(editMode === 'tag' && editTags.length){ editTags.pop(); renderPins(); }
+  else if(editTexts.length){ editTexts.pop(); redrawCanvas(); }
+});
+
+document.getElementById('editCancelBtn').addEventListener('click', ()=>{
+  document.getElementById('imageEditor').style.display = 'none';
+  editingIndex = null;
+});
+
+document.getElementById('editSaveBtn').addEventListener('click', async ()=>{
+  const canvas = document.getElementById('editCanvas');
+  let dataUrl;
+  try{
+    dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  }catch(err){
+    alert('Não foi possível salvar (bloqueio de CORS do provedor da imagem). Tenta subir a foto de novo em vez de editar a já enviada.');
+    return;
+  }
+  const base64 = dataUrl.split(',')[1];
+  const btn = document.getElementById('editSaveBtn');
+  btn.textContent = 'Salvando...';
+  btn.disabled = true;
+  try{
+    const res = await fetch('https://instagram-proxy-neon.vercel.app/api/upload', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ imageBase64: base64 })
+    });
+    const data = await res.json();
+    if(data.error){ alert('Erro ao salvar: ' + data.error); return; }
+    const oldUrl = uploadedImages[editingIndex].url;
+    uploadedImages[editingIndex] = { url: data.url };
+    delete imageTags[oldUrl];
+    imageTags[data.url] = editTags.slice();
+    if(document.getElementById('genImageUrl').value.trim() === oldUrl){
+      document.getElementById('genImageUrl').value = data.url;
+    }
+    document.getElementById('imageEditor').style.display = 'none';
+    editingIndex = null;
+    renderGallery();
+    renderTagsInfo();
+  }catch(err){
+    alert('Erro ao salvar: ' + err.message);
+  }finally{
+    btn.textContent = 'Salvar edição';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('genImageUrl').addEventListener('input', ()=>{
+  renderGallery();
+  renderTagsInfo();
+});
 
 document.getElementById('genImageFile').addEventListener('change', async (e)=>{
   const files = Array.from(e.target.files || []);
@@ -787,6 +1013,8 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
   const manualText = document.getElementById('genManualText').value.trim();
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
+  const locationId = document.getElementById('genLocationId').value.trim();
+  const userTags = imageTags[imageUrl] || [];
 
   if(!acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
@@ -812,7 +1040,9 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
         token: acc.igToken,
         imageUrl: imageUrl,
         caption: caption,
-        mediaType: format === 'Story' ? 'STORIES' : 'IMAGE'
+        mediaType: format === 'Story' ? 'STORIES' : 'IMAGE',
+        userTags: userTags,
+        locationId: locationId || undefined
       })
     });
     const data = await proxyRes.json();
@@ -848,6 +1078,8 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
   const scheduleAt = document.getElementById('genScheduleAt').value;
+  const locationId = document.getElementById('genLocationId').value.trim();
+  const userTags = imageTags[imageUrl] || [];
 
   if(!acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
@@ -885,7 +1117,9 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
         caption: caption,
         mediaType: format === 'Story' ? 'STORIES' : 'IMAGE',
         scheduledFor: new Date(scheduleAt).toISOString(),
-        accountName: acc.name
+        accountName: acc.name,
+        userTags: userTags,
+        locationId: locationId || undefined
       })
     });
     const data = await res.json();
