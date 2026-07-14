@@ -437,11 +437,6 @@
           <label>Links de produtos (opcional)</label>
           <textarea id="genProductLinks" placeholder="Um link por linha" style="min-height:50px;"></textarea>
         </div>
-        <div class="field" id="genLocationRow">
-          <label>ID de localização no Instagram (opcional)</label>
-          <input id="genLocationId" placeholder="Ex: 106078477139028">
-          <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">O Instagram exige o ID numérico do local, não o nome. Com o tipo de conexão desta ferramenta não dá pra buscar automaticamente — encontre o ID testando o endpoint <span class="mono">/pages/search?q=NOME_DO_LOCAL</span> no <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> da Meta.</div>
-        </div>
         <div class="field" id="genScheduleRow">
           <label>Agendar para (opcional)</label>
           <input type="datetime-local" id="genScheduleAt">
@@ -576,7 +571,6 @@ function renderLanes(){
       document.getElementById('uploadStatus').textContent = '';
       document.getElementById('genImageFile').value = '';
       document.getElementById('genScheduleAt').value = '';
-      document.getElementById('genLocationId').value = '';
       uploadedImages = [];
       imageTags = {};
       document.getElementById('imageGallery').innerHTML = '';
@@ -825,7 +819,6 @@ function openLogEntryForReuse(entry){
   document.getElementById('imageTagsInfo').textContent = '';
   document.getElementById('imageEditor').style.display = 'none';
   document.getElementById('genProductLinks').value = '';
-  document.getElementById('genLocationId').value = '';
   document.getElementById('genScheduleAt').value = '';
   document.getElementById('publishStatus').className = 'publish-status';
   setGenStep(1);
@@ -852,7 +845,6 @@ function openScheduleForEdit(item){
   }
   document.getElementById('imageEditor').style.display = 'none';
   document.getElementById('genProductLinks').value = '';
-  document.getElementById('genLocationId').value = item.locationId || '';
   document.getElementById('genScheduleAt').value = toLocalDatetimeInputValue(item.scheduledFor);
   document.getElementById('publishStatus').className = 'publish-status';
   const hint = document.getElementById('editingScheduleHint');
@@ -1129,7 +1121,6 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
   const manualText = document.getElementById('genManualText').value.trim();
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
-  const locationId = document.getElementById('genLocationId').value.trim();
   const userTags = imageTags[imageUrl] || [];
 
   if(!acc.igId || !acc.igToken){
@@ -1157,8 +1148,7 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
         imageUrl: imageUrl,
         caption: caption,
         mediaType: format === 'Story' ? 'STORIES' : 'IMAGE',
-        userTags: userTags,
-        locationId: locationId || undefined
+        userTags: userTags
       })
     });
     const data = await proxyRes.json();
@@ -1194,7 +1184,6 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
   const scheduleAt = document.getElementById('genScheduleAt').value;
-  const locationId = document.getElementById('genLocationId').value.trim();
   const userTags = imageTags[imageUrl] || [];
 
   if(!acc || !acc.igId || !acc.igToken){
@@ -1238,8 +1227,7 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
         format: format,
         scheduledFor: new Date(scheduleAt).toISOString(),
         accountName: acc.name,
-        userTags: userTags,
-        locationId: locationId || undefined
+        userTags: userTags
       })
     });
     const data = await res.json();
