@@ -401,7 +401,7 @@
           <label>Formato</label>
           <select id="genFormat">
             <option>Reel (roteiro + legenda)</option>
-            <option>Carrossel (5 slides)</option>
+            <option>Carrossel (2 a 10 itens)</option>
             <option>Legenda de post único</option>
             <option>Story</option>
           </select>
@@ -422,7 +422,7 @@
           <summary style="cursor:pointer;font-size:11.5px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:0.04em;">Qual formato escolher? Vantagens e desvantagens</summary>
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;font-size:12.5px;line-height:1.5;color:var(--ink);">
             <div><strong>Reel (roteiro + legenda)</strong> — vídeo curto vertical. <span style="color:var(--sage);">A favor:</span> hoje é o formato que mais alcança gente que ainda não te segue — o Instagram empurra Reel pra descoberta. Bom pra mostrar o produto em uso. <span style="color:var(--red);">Contra:</span> dá mais trabalho (filmar e editar), precisa ter o vídeo pronto.</div>
-            <div><strong>Carrossel (5 slides)</strong> — várias imagens deslizáveis num post só. <span style="color:var(--sage);">A favor:</span> hoje é o que mais gera salvamento e comentário, ótimo pra comparar produtos ou explicar passo a passo, fácil de montar só com fotos. <span style="color:var(--red);">Contra:</span> alcança menos gente nova que o Reel — quem já te segue vê mais que estranho.</div>
+            <div><strong>Carrossel (2 a 10 itens)</strong> — várias fotos e/ou vídeos deslizáveis num post só (pode misturar os dois). <span style="color:var(--sage);">A favor:</span> hoje é o que mais gera salvamento e comentário, ótimo pra comparar produtos ou explicar passo a passo. <span style="color:var(--red);">Contra:</span> alcança menos gente nova que o Reel — quem já te segue vê mais que estranho.</div>
             <div><strong>Legenda de post único</strong> — uma foto só. <span style="color:var(--sage);">A favor:</span> mais rápido de publicar, direto pra um anúncio pontual. <span style="color:var(--red);">Contra:</span> hoje é o formato com menor engajamento dos quatro.</div>
             <div><strong>Story</strong> — some do feed em 24h (ou fica fixado nos destaques). <span style="color:var(--sage);">A favor:</span> ótimo pra urgência ("só hoje", "últimas unidades"), permite enquete/caixinha de pergunta, não exige tanta produção. <span style="color:var(--red);">Contra:</span> alcança só quem já te segue e some rápido — não ajuda a atrair gente nova.</div>
           </div>
@@ -437,27 +437,18 @@
       <!-- Etapa 2: imagem -->
       <div class="step-panel" data-step-panel="2">
         <div class="field" id="genImageRow">
-          <label>Link público da imagem (obrigatório pra publicar)</label>
-          <input id="genImageUrl" placeholder="https://exemplo.com/foto.jpg">
-          <div style="margin-top:8px;">
-            <input type="file" id="genImageFile" accept="image/*" multiple style="display:none;">
-            <button class="btn btn-ghost" id="genImageUploadBtn" type="button" style="font-size:12px;padding:8px 14px;">📷 Enviar imagens do celular/computador</button>
+          <label>Fotos e vídeos do post</label>
+          <input type="hidden" id="genImageUrl" value="">
+          <input type="hidden" id="genVideoUrl" value="">
+          <div>
+            <input type="file" id="genMediaFile" accept="image/*,video/*" multiple style="display:none;">
+            <button class="btn btn-ghost" id="genMediaUploadBtn" type="button" style="font-size:12px;padding:8px 14px;">📎 Enviar fotos/vídeos do celular/computador</button>
             <span id="uploadStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
           </div>
           <div id="imageGallery" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"></div>
+          <div id="carouselHint" style="font-size:11px;color:var(--purple-dark);margin-top:8px;font-weight:600;display:none;"></div>
           <div id="imageTagsInfo" style="font-size:11.5px;color:var(--ink-soft);margin-top:8px;"></div>
-        </div>
-
-        <div class="field" id="genVideoRow" style="margin-top:14px;border-top:1.5px solid var(--line);padding-top:14px;">
-          <label>Vídeo (opcional — só funciona com formato Reel ou Story)</label>
-          <div>
-            <input type="file" id="genVideoFile" accept="video/*" style="display:none;">
-            <button class="btn btn-ghost" id="genVideoUploadBtn" type="button" style="font-size:12px;padding:8px 14px;">🎥 Enviar vídeo</button>
-            <span id="videoStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
-          </div>
-          <input type="hidden" id="genVideoUrl" value="">
-          <div id="videoInfo" style="margin-top:8px;"></div>
-          <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;">Vídeo demora bem mais que foto pra processar no Instagram (pode levar minutos). Pra vídeo, prefira "Agendar" (mesmo que pra daqui a pouco) em vez de "Publicar agora" — o agendamento continua tentando automaticamente até terminar.</div>
+          <div style="font-size:11px;color:var(--ink-soft);margin-top:8px;">Vídeo demora bem mais que foto pra processar no Instagram (pode levar minutos). Pra vídeo (ou carrossel com vídeo), prefira "Agendar" em vez de "Publicar agora" — o agendamento continua tentando automaticamente até terminar. No formato Carrossel, clique nas miniaturas pra escolher de 2 a 10 itens, na ordem que quiser.</div>
         </div>
 
         <div class="field" id="imageEditor" style="display:none;margin-top:6px;border-top:1.5px solid var(--line);padding-top:16px;">
@@ -628,10 +619,16 @@ function renderIgPreview(){
   const mediaEl = document.getElementById('igPreviewMedia');
   mediaEl.style.aspectRatio = target.w + ' / ' + target.h;
 
-  const badge = format === 'Story' ? 'Story' : (format.startsWith('Reel') ? 'Reel' : (format.startsWith('Carrossel') ? 'Carrossel' : 'Post'));
+  const carousel = isCarouselFormat();
+  const badge = format === 'Story' ? 'Story' : (format.startsWith('Reel') ? 'Reel' : (carousel ? 'Carrossel · ' + carouselSelection.length : 'Post'));
 
   let mediaInner;
-  if(videoUrl){
+  if(carousel && carouselSelection.length > 0){
+    const first = carouselSelection[0];
+    mediaInner = first.type === 'video'
+      ? '<video src="' + first.url + '" muted loop autoplay playsinline></video>'
+      : '<img src="' + first.url + '">';
+  } else if(videoUrl){
     mediaInner = '<video src="' + videoUrl + '" muted loop autoplay playsinline></video>';
   } else if(imageUrl){
     mediaInner = '<img src="' + imageUrl + '">';
@@ -689,15 +686,8 @@ function renderLanes(){
       document.getElementById('genTopic').value = '';
       document.getElementById('genResult').style.display = 'none';
       document.getElementById('genManualText').value = '';
-      document.getElementById('genImageUrl').value = '';
-      document.getElementById('uploadStatus').textContent = '';
-      document.getElementById('genImageFile').value = '';
       document.getElementById('genScheduleAt').value = '';
-      uploadedImages = [];
-      imageTags = {};
-      document.getElementById('imageGallery').innerHTML = '';
-      document.getElementById('imageTagsInfo').textContent = '';
-      document.getElementById('imageEditor').style.display = 'none';
+      clearMediaState();
       document.getElementById('genProductLinks').value = '';
       document.getElementById('publishStatus').className = 'publish-status';
       exitEditMode();
@@ -852,7 +842,10 @@ document.querySelectorAll('.step-tab').forEach(tab=>{
 ['genManualText','genProductLinks'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderIgPreview);
 });
-document.getElementById('genFormat').addEventListener('change', renderIgPreview);
+document.getElementById('genFormat').addEventListener('change', ()=>{
+  renderGallery();
+  renderIgPreview();
+});
 
 document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('accName').value.trim();
@@ -935,45 +928,14 @@ document.getElementById('genSaveBtn').addEventListener('click', async ()=>{
   closeOverlay('overlayGen');
 });
 
-document.getElementById('genImageUploadBtn').addEventListener('click', ()=>{
-  document.getElementById('genImageFile').click();
-});
-
-document.getElementById('genVideoUploadBtn').addEventListener('click', ()=>{
-  document.getElementById('genVideoFile').click();
-});
-
-document.getElementById('genVideoFile').addEventListener('change', async (e)=>{
-  const file = e.target.files && e.target.files[0];
-  if(!file) return;
-  const statusEl = document.getElementById('videoStatus');
-  const format = document.getElementById('genFormat').value;
-  if(!format.startsWith('Reel') && format !== 'Story'){
-    statusEl.textContent = 'Vídeo só é usado com formato Reel ou Story. Troca o formato na aba "1. Conteúdo" antes de enviar.';
-    document.getElementById('genVideoFile').value = '';
-    return;
-  }
-  statusEl.textContent = 'Enviando vídeo (pode demorar dependendo do tamanho)...';
-  try{
-    const { upload } = await import('https://esm.sh/@vercel/blob/client');
-    const blob = await upload(file.name, file, {
-      access: 'public',
-      handleUploadUrl: 'https://instagram-proxy-neon.vercel.app/api/upload-video'
-    });
-    uploadedVideo = { url: blob.url, name: file.name };
-    document.getElementById('genVideoUrl').value = blob.url;
-    renderVideoInfo();
-    renderIgPreview();
-    statusEl.textContent = 'Vídeo pronto: ' + file.name;
-  }catch(err){
-    statusEl.textContent = 'Erro ao enviar vídeo: ' + err.message;
-  }
+document.getElementById('genMediaUploadBtn').addEventListener('click', ()=>{
+  document.getElementById('genMediaFile').click();
 });
 
 function getTargetAspect(format){
   if(format === 'Story') return {w:1080, h:1920};
   if(format === 'Reel (roteiro + legenda)') return {w:1080, h:1920};
-  if(format === 'Carrossel (5 slides)') return {w:1080, h:1350};
+  if(format === 'Carrossel (2 a 10 itens)') return {w:1080, h:1350};
   return {w:1080, h:1080};
 }
 
@@ -1008,34 +970,48 @@ function cropImageToAspect(dataUrl, targetW, targetH){
 }
 
 let uploadedImages = [];
+let uploadedVideos = []; // [{ url, name }, ...]
 let imageTags = {}; // { [url]: [{username,x,y}, ...] }
 let editingScheduleId = null;
-let uploadedVideo = null; // { url, name }
+let carouselSelection = []; // [{type,url}, ...] em ordem, só usado no formato Carrossel
 
-function renderVideoInfo(){
-  const el = document.getElementById('videoInfo');
-  if(!uploadedVideo){ el.innerHTML = ''; return; }
-  el.innerHTML = '';
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;';
-  const label = document.createElement('span');
-  label.textContent = '🎬 ' + uploadedVideo.name;
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'btn btn-ghost';
-  removeBtn.style.cssText = 'font-size:11px;padding:4px 10px;';
-  removeBtn.textContent = 'Remover vídeo';
-  removeBtn.addEventListener('click', ()=>{
-    uploadedVideo = null;
+function isCarouselFormat(){
+  return document.getElementById('genFormat').value.startsWith('Carrossel');
+}
+
+function selectSingleMedia(item){
+  if(item.type === 'video'){
+    document.getElementById('genVideoUrl').value = item.url;
+    document.getElementById('genImageUrl').value = '';
+  } else {
+    document.getElementById('genImageUrl').value = item.url;
     document.getElementById('genVideoUrl').value = '';
-    document.getElementById('genVideoFile').value = '';
-    document.getElementById('videoStatus').textContent = '';
-    renderVideoInfo();
-    renderIgPreview();
-  });
-  row.appendChild(label);
-  row.appendChild(removeBtn);
-  el.appendChild(row);
+  }
+}
+
+function getAllMediaItems(){
+  const items = [];
+  uploadedImages.forEach(img => items.push({ type: 'image', url: img.url }));
+  uploadedVideos.forEach(vid => items.push({ type: 'video', url: vid.url, name: vid.name }));
+  return items;
+}
+
+function carouselIndexOf(url){
+  return carouselSelection.findIndex(i => i.url === url);
+}
+
+function clearMediaState(){
+  uploadedImages = [];
+  uploadedVideos = [];
+  imageTags = {};
+  carouselSelection = [];
+  document.getElementById('genImageUrl').value = '';
+  document.getElementById('genVideoUrl').value = '';
+  document.getElementById('uploadStatus').textContent = '';
+  document.getElementById('genMediaFile').value = '';
+  document.getElementById('imageTagsInfo').textContent = '';
+  document.getElementById('imageEditor').style.display = 'none';
+  renderGallery();
 }
 
 function setScheduleButtonLabel(){
@@ -1068,19 +1044,7 @@ function openLogEntryForReuse(entry){
   document.getElementById('genResult').style.display = 'none';
   document.getElementById('genResult').dataset.generated = '';
   document.getElementById('genManualText').value = entry.content || '';
-  document.getElementById('genImageUrl').value = '';
-  document.getElementById('uploadStatus').textContent = '';
-  document.getElementById('genImageFile').value = '';
-  uploadedImages = [];
-  imageTags = {};
-  document.getElementById('imageGallery').innerHTML = '';
-  document.getElementById('imageTagsInfo').textContent = '';
-  document.getElementById('imageEditor').style.display = 'none';
-  uploadedVideo = null;
-  document.getElementById('genVideoUrl').value = '';
-  document.getElementById('genVideoFile').value = '';
-  document.getElementById('videoStatus').textContent = '';
-  renderVideoInfo();
+  clearMediaState();
   document.getElementById('genProductLinks').value = '';
   document.getElementById('genScheduleAt').value = '';
   document.getElementById('publishStatus').className = 'publish-status';
@@ -1098,20 +1062,26 @@ function openScheduleForEdit(item){
   document.getElementById('genResult').style.display = 'none';
   document.getElementById('genResult').dataset.generated = '';
   document.getElementById('genManualText').value = item.caption || '';
-  document.getElementById('genImageUrl').value = item.imageUrl || '';
-  document.getElementById('uploadStatus').textContent = '';
-  document.getElementById('genImageFile').value = '';
-  uploadedImages = item.imageUrl ? [{ url: item.imageUrl }] : [];
-  imageTags = {};
-  if(item.imageUrl && Array.isArray(item.userTags) && item.userTags.length){
-    imageTags[item.imageUrl] = item.userTags;
+  clearMediaState();
+  if(Array.isArray(item.carouselItems) && item.carouselItems.length >= 2){
+    item.carouselItems.forEach(ci => {
+      if(ci.type === 'video') uploadedVideos.push({ url: ci.url, name: 'vídeo salvo' });
+      else uploadedImages.push({ url: ci.url });
+    });
+    carouselSelection = item.carouselItems.slice();
+  } else {
+    if(item.imageUrl){
+      uploadedImages.push({ url: item.imageUrl });
+      document.getElementById('genImageUrl').value = item.imageUrl;
+      if(Array.isArray(item.userTags) && item.userTags.length){
+        imageTags[item.imageUrl] = item.userTags;
+      }
+    }
+    if(item.videoUrl){
+      uploadedVideos.push({ url: item.videoUrl, name: 'vídeo salvo' });
+      document.getElementById('genVideoUrl').value = item.videoUrl;
+    }
   }
-  document.getElementById('imageEditor').style.display = 'none';
-  uploadedVideo = item.videoUrl ? { url: item.videoUrl, name: 'vídeo salvo' } : null;
-  document.getElementById('genVideoUrl').value = item.videoUrl || '';
-  document.getElementById('genVideoFile').value = '';
-  document.getElementById('videoStatus').textContent = '';
-  renderVideoInfo();
   document.getElementById('genProductLinks').value = '';
   document.getElementById('genScheduleAt').value = toLocalDatetimeInputValue(item.scheduledFor);
   document.getElementById('publishStatus').className = 'publish-status';
@@ -1133,19 +1103,7 @@ function resetGenFormForNewPost(){
   document.getElementById('genResult').style.display = 'none';
   document.getElementById('genResult').dataset.generated = '';
   document.getElementById('genManualText').value = '';
-  document.getElementById('genImageUrl').value = '';
-  document.getElementById('uploadStatus').textContent = '';
-  document.getElementById('genImageFile').value = '';
-  uploadedImages = [];
-  imageTags = {};
-  document.getElementById('imageGallery').innerHTML = '';
-  document.getElementById('imageTagsInfo').textContent = '';
-  document.getElementById('imageEditor').style.display = 'none';
-  uploadedVideo = null;
-  document.getElementById('genVideoUrl').value = '';
-  document.getElementById('genVideoFile').value = '';
-  document.getElementById('videoStatus').textContent = '';
-  renderVideoInfo();
+  clearMediaState();
   document.getElementById('genProductLinks').value = '';
   document.getElementById('genScheduleAt').value = '';
   exitEditMode();
@@ -1170,33 +1128,104 @@ function renderTagsInfo(){
 function renderGallery(){
   const el = document.getElementById('imageGallery');
   el.innerHTML = '';
-  const currentUrl = document.getElementById('genImageUrl').value.trim();
-  uploadedImages.forEach((img, idx) => {
+  const items = getAllMediaItems();
+  const carousel = isCarouselFormat();
+  const currentImgUrl = document.getElementById('genImageUrl').value.trim();
+  const currentVidUrl = document.getElementById('genVideoUrl').value.trim();
+
+  items.forEach((item) => {
     const wrap = document.createElement('div');
     wrap.className = 'thumb-wrap';
-    const selected = img.url === currentUrl;
+    const csIdx = carouselIndexOf(item.url);
+    const selected = carousel
+      ? csIdx > -1
+      : (item.type === 'image' ? item.url === currentImgUrl : item.url === currentVidUrl);
     const thumb = document.createElement('div');
-    thumb.style.cssText = 'width:56px;height:56px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid ' + (selected ? 'var(--purple)' : 'transparent') + ';';
-    thumb.innerHTML = '<img src="' + img.url + '" style="width:100%;height:100%;object-fit:cover;display:block;">';
+    thumb.style.cssText = 'width:56px;height:56px;border-radius:8px;overflow:hidden;cursor:pointer;position:relative;border:2px solid ' + (selected ? 'var(--purple)' : 'transparent') + ';background:#111;';
+    if(item.type === 'video'){
+      thumb.innerHTML = '<video src="' + item.url + '" muted style="width:100%;height:100%;object-fit:cover;display:block;"></video><span style="position:absolute;bottom:2px;right:3px;font-size:11px;">🎬</span>';
+    } else {
+      thumb.innerHTML = '<img src="' + item.url + '" style="width:100%;height:100%;object-fit:cover;display:block;">';
+    }
+    if(carousel && csIdx > -1){
+      const badge = document.createElement('span');
+      badge.textContent = String(csIdx + 1);
+      badge.style.cssText = 'position:absolute;top:2px;right:2px;background:var(--purple);color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;';
+      thumb.appendChild(badge);
+    }
     thumb.addEventListener('click', () => {
-      document.getElementById('genImageUrl').value = img.url;
+      if(carousel){
+        const idx = carouselIndexOf(item.url);
+        if(idx > -1){
+          carouselSelection.splice(idx, 1);
+        } else {
+          if(carouselSelection.length >= 10){
+            alert('Carrossel aceita no máximo 10 itens.');
+            return;
+          }
+          carouselSelection.push({ type: item.type, url: item.url });
+        }
+      } else {
+        selectSingleMedia(item);
+      }
       renderGallery();
       renderTagsInfo();
       renderIgPreview();
     });
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'thumb-edit-btn';
-    editBtn.textContent = '✏️';
-    editBtn.title = 'Editar / marcar pessoas';
-    editBtn.addEventListener('click', (e) => {
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'thumb-edit-btn';
+    removeBtn.style.left = '-6px';
+    removeBtn.style.right = 'auto';
+    removeBtn.style.background = 'var(--red)';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Remover';
+    removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openEditor(idx);
+      if(item.type === 'image'){
+        uploadedImages = uploadedImages.filter(i => i.url !== item.url);
+        delete imageTags[item.url];
+        if(document.getElementById('genImageUrl').value.trim() === item.url) document.getElementById('genImageUrl').value = '';
+      } else {
+        uploadedVideos = uploadedVideos.filter(v => v.url !== item.url);
+        if(document.getElementById('genVideoUrl').value.trim() === item.url) document.getElementById('genVideoUrl').value = '';
+      }
+      const csi = carouselIndexOf(item.url);
+      if(csi > -1) carouselSelection.splice(csi, 1);
+      renderGallery();
+      renderTagsInfo();
+      renderIgPreview();
     });
     wrap.appendChild(thumb);
-    wrap.appendChild(editBtn);
+    wrap.appendChild(removeBtn);
+
+    if(item.type === 'image'){
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'thumb-edit-btn';
+      editBtn.textContent = '✏️';
+      editBtn.title = 'Editar / marcar pessoas';
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const imgIdx = uploadedImages.findIndex(i => i.url === item.url);
+        if(imgIdx > -1) openEditor(imgIdx);
+      });
+      wrap.appendChild(editBtn);
+    }
+
     el.appendChild(wrap);
   });
+
+  const hint = document.getElementById('carouselHint');
+  if(carousel){
+    hint.style.display = 'block';
+    hint.textContent = carouselSelection.length < 2
+      ? 'Selecione pelo menos 2 itens pra formar o carrossel (' + carouselSelection.length + ' selecionado' + (carouselSelection.length === 1 ? '' : 's') + ').'
+      : carouselSelection.length + ' itens selecionados, nessa ordem.';
+  } else {
+    hint.style.display = 'none';
+  }
 }
 
 // ---- Editor de imagem: ajustes, texto e marcação de pessoas ----
@@ -1367,47 +1396,74 @@ document.getElementById('genImageUrl').addEventListener('input', ()=>{
   renderIgPreview();
 });
 
-document.getElementById('genImageFile').addEventListener('change', async (e)=>{
+document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
   const files = Array.from(e.target.files || []);
   if(files.length === 0) return;
   const statusEl = document.getElementById('uploadStatus');
+  const format = document.getElementById('genFormat').value;
+  const allowsVideo = format.startsWith('Reel') || format === 'Story' || format.startsWith('Carrossel');
 
   for(let idx = 0; idx < files.length; idx++){
     const file = files[idx];
-    statusEl.textContent = 'Ajustando imagem ' + (idx+1) + '/' + files.length + '...';
-    try{
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const format = document.getElementById('genFormat').value;
-      const target = getTargetAspect(format);
-      const croppedDataUrl = await cropImageToAspect(dataUrl, target.w, target.h);
-      const base64 = croppedDataUrl.split(',')[1];
-      statusEl.textContent = 'Enviando imagem ' + (idx+1) + '/' + files.length + '...';
-      const res = await fetch('https://instagram-proxy-neon.vercel.app/api/upload', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ imageBase64: base64 })
-      });
-      const data = await res.json();
-      if(data.error){
-        statusEl.textContent = 'Erro: ' + data.error;
+    const isVideoFile = file.type.startsWith('video/');
+
+    if(isVideoFile){
+      if(!allowsVideo){
+        statusEl.textContent = 'Vídeo só é usado com formato Reel, Story ou Carrossel. Troca o formato na aba "1. Conteúdo" antes de enviar.';
         continue;
       }
-      uploadedImages.push({ url: data.url });
-      if(!document.getElementById('genImageUrl').value.trim()){
-        document.getElementById('genImageUrl').value = data.url;
-        renderIgPreview();
+      statusEl.textContent = 'Enviando vídeo ' + (idx+1) + '/' + files.length + ' (pode demorar)...';
+      try{
+        const { upload } = await import('https://esm.sh/@vercel/blob/client');
+        const blob = await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: 'https://instagram-proxy-neon.vercel.app/api/upload-video'
+        });
+        uploadedVideos.push({ url: blob.url, name: file.name });
+        if(!isCarouselFormat() && !document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
+          selectSingleMedia({ type: 'video', url: blob.url });
+          renderIgPreview();
+        }
+        renderGallery();
+      }catch(err){
+        statusEl.textContent = 'Erro ao enviar vídeo: ' + err.message;
       }
-      renderGallery();
-    }catch(err){
-      statusEl.textContent = 'Erro ao ajustar/enviar: ' + err.message;
+    } else {
+      statusEl.textContent = 'Ajustando imagem ' + (idx+1) + '/' + files.length + '...';
+      try{
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const target = getTargetAspect(format);
+        const croppedDataUrl = await cropImageToAspect(dataUrl, target.w, target.h);
+        const base64 = croppedDataUrl.split(',')[1];
+        statusEl.textContent = 'Enviando imagem ' + (idx+1) + '/' + files.length + '...';
+        const res = await fetch('https://instagram-proxy-neon.vercel.app/api/upload', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ imageBase64: base64 })
+        });
+        const data = await res.json();
+        if(data.error){
+          statusEl.textContent = 'Erro: ' + data.error;
+          continue;
+        }
+        uploadedImages.push({ url: data.url });
+        if(!isCarouselFormat() && !document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
+          selectSingleMedia({ type: 'image', url: data.url });
+          renderIgPreview();
+        }
+        renderGallery();
+      }catch(err){
+        statusEl.textContent = 'Erro ao ajustar/enviar: ' + err.message;
+      }
     }
   }
-  statusEl.textContent = uploadedImages.length + ' imagem' + (uploadedImages.length>1?'s':'') + ' pronta' + (uploadedImages.length>1?'s':'') + '. Clique numa miniatura pra escolher.';
+  const total = uploadedImages.length + uploadedVideos.length;
+  statusEl.textContent = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. ' + (isCarouselFormat() ? 'Clique nas miniaturas pra escolher os itens do carrossel.' : 'Clique numa miniatura pra escolher.');
 });
 
 function formatIcon(format){
@@ -1432,31 +1488,47 @@ function computeMediaType(format, hasVideo){
   return 'IMAGE';
 }
 
+function getMediaPayload(){
+  const format = document.getElementById('genFormat').value;
+  if(isCarouselFormat()){
+    if(carouselSelection.length < 2){
+      return { error: 'Selecione pelo menos 2 itens (fotos ou vídeos) na etapa "2. Imagem" pra formar o carrossel.' };
+    }
+    return { mediaType: 'CAROUSEL', carouselItems: carouselSelection.slice(), imageUrl: '', videoUrl: '' };
+  }
+  const imageUrl = document.getElementById('genImageUrl').value.trim();
+  const videoUrl = document.getElementById('genVideoUrl').value.trim();
+  if(!imageUrl && !videoUrl){
+    return { error: 'Envia uma foto ou vídeo na etapa "2. Imagem" antes de continuar.' };
+  }
+  return { mediaType: computeMediaType(format, !!videoUrl), imageUrl, videoUrl, carouselItems: [] };
+}
+
 document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
   const acc = accounts.find(a=>a.id===activeAccountId);
   const statusBox = document.getElementById('publishStatus');
-  const imageUrl = document.getElementById('genImageUrl').value.trim();
-  const videoUrl = document.getElementById('genVideoUrl').value.trim();
   const manualText = document.getElementById('genManualText').value.trim();
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
-  const userTags = imageTags[imageUrl] || [];
-  const mediaType = computeMediaType(format, !!videoUrl);
 
   if(!acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
     statusBox.textContent = 'Conecta o Instagram primeiro (link "Conectar Instagram" no card da conta).';
     return;
   }
-  if(!imageUrl && !videoUrl){
+
+  const media = getMediaPayload();
+  if(media.error){
     statusBox.className = 'publish-status err';
-    statusBox.textContent = 'Cola o link público da imagem ou envia um vídeo antes de publicar.';
+    statusBox.textContent = media.error;
     return;
   }
+  const { mediaType, imageUrl, videoUrl, carouselItems } = media;
+  const userTags = imageUrl ? (imageTags[imageUrl] || []) : [];
 
   statusBox.className = 'publish-status';
   statusBox.style.display = 'block';
-  statusBox.innerHTML = '<span class="loading-dots">' + (videoUrl ? 'Publicando (vídeo pode demorar bem mais)' : 'Publicando') + '</span>';
+  statusBox.innerHTML = '<span class="loading-dots">' + (videoUrl || mediaType === 'CAROUSEL' ? 'Publicando (pode demorar um pouco mais)' : 'Publicando') + '</span>';
 
   try{
     const proxyRes = await fetch('https://instagram-proxy-neon.vercel.app/api/publish', {
@@ -1467,6 +1539,7 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
         token: acc.igToken,
         imageUrl: imageUrl,
         videoUrl: videoUrl,
+        carouselItems: carouselItems,
         caption: caption,
         mediaType: mediaType,
         userTags: userTags
@@ -1485,6 +1558,7 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
       const topic = document.getElementById('genTopic').value.trim();
       logEntries.push({
         date: new Date().toLocaleDateString('pt-BR'),
+        time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
         accountName: acc.name,
         color: colorFor(acc.id),
         format, topic, content: caption,
@@ -1517,14 +1591,10 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
 document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
   const acc = accounts.find(a=>a.id===activeAccountId);
   const statusBox = document.getElementById('publishStatus');
-  const imageUrl = document.getElementById('genImageUrl').value.trim();
-  const videoUrl = document.getElementById('genVideoUrl').value.trim();
   const manualText = document.getElementById('genManualText').value.trim();
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
   const scheduleAt = document.getElementById('genScheduleAt').value;
-  const userTags = imageTags[imageUrl] || [];
-  const mediaType = computeMediaType(format, !!videoUrl);
 
   if(!acc || !acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
@@ -1533,11 +1603,16 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
       : 'Conecta o Instagram primeiro (link "Conectar Instagram" no card da conta).';
     return;
   }
-  if(!imageUrl && !videoUrl){
+
+  const media = getMediaPayload();
+  if(media.error){
     statusBox.className = 'publish-status err';
-    statusBox.textContent = 'Cola o link publico da imagem ou envia um vídeo antes de agendar.';
+    statusBox.textContent = media.error;
     return;
   }
+  const { mediaType, imageUrl, videoUrl, carouselItems } = media;
+  const userTags = imageUrl ? (imageTags[imageUrl] || []) : [];
+
   if(!scheduleAt){
     statusBox.className = 'publish-status err';
     statusBox.textContent = 'Escolhe a data e hora do agendamento.';
@@ -1563,6 +1638,7 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
         token: acc.igToken,
         imageUrl: imageUrl,
         videoUrl: videoUrl,
+        carouselItems: carouselItems,
         caption: caption,
         mediaType: mediaType,
         format: format,
