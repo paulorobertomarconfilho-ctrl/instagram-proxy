@@ -4,5 +4,10 @@
       "path": "/api/cron-publish",
       "schedule": "0 12 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/upload-video.js": {
+      "includeFiles": "node_modules/@vercel/blob/**"
+    }
+  }
 }
