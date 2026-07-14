@@ -642,7 +642,11 @@ function renderIgPreview(){
     capEl.style.display = 'none';
   } else {
     capEl.style.display = 'block';
-    capEl.innerHTML = '<b>' + escapeHtml(username) + '</b>' + escapeHtml(caption).replace(/\n/g, '<br>');
+    if(caption){
+      capEl.innerHTML = '<b>' + escapeHtml(username) + '</b>' + escapeHtml(caption).replace(/\n/g, '<br>');
+    } else {
+      capEl.innerHTML = '<b>' + escapeHtml(username) + '</b><span style="color:#999;">Sem legenda ainda — clique em "Gerar com IA" na etapa "1. Conteúdo" ou cole/escreva o texto.</span>';
+    }
   }
 }
 
@@ -1420,7 +1424,12 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
           handleUploadUrl: 'https://instagram-proxy-neon.vercel.app/api/upload-video'
         });
         uploadedVideos.push({ url: blob.url, name: file.name });
-        if(!isCarouselFormat() && !document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
+        if(isCarouselFormat()){
+          if(carouselSelection.length < 10 && carouselIndexOf(blob.url) === -1){
+            carouselSelection.push({ type: 'video', url: blob.url });
+          }
+          renderIgPreview();
+        } else if(!document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
           selectSingleMedia({ type: 'video', url: blob.url });
           renderIgPreview();
         }
@@ -1452,7 +1461,12 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
           continue;
         }
         uploadedImages.push({ url: data.url });
-        if(!isCarouselFormat() && !document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
+        if(isCarouselFormat()){
+          if(carouselSelection.length < 10 && carouselIndexOf(data.url) === -1){
+            carouselSelection.push({ type: 'image', url: data.url });
+          }
+          renderIgPreview();
+        } else if(!document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
           selectSingleMedia({ type: 'image', url: data.url });
           renderIgPreview();
         }
@@ -1463,7 +1477,7 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
     }
   }
   const total = uploadedImages.length + uploadedVideos.length;
-  statusEl.textContent = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. ' + (isCarouselFormat() ? 'Clique nas miniaturas pra escolher os itens do carrossel.' : 'Clique numa miniatura pra escolher.');
+  statusEl.textContent = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. ' + (isCarouselFormat() ? 'Todos entraram no carrossel — clique numa miniatura pra tirar ou trocar a ordem.' : 'Clique numa miniatura pra escolher.');
 });
 
 function formatIcon(format){
