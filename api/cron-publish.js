@@ -25,21 +25,27 @@ async function writeQueue(list){
     access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 0
+    allowOverwrite: true
   });
 }
 
-async function publishToInstagram({ igId, token, imageUrl, caption, mediaType }){
-  const createUrl = 'https://graph.instagram.com/v21.0/' + igId + '/media';
+async function publishToInstagram({ igId, token, imageUrl, caption, mediaType, userTags, locationId }){
   const createBody = { image_url: imageUrl, access_token: token };
   if(mediaType === 'STORIES'){
     createBody.media_type = 'STORIES';
   } else {
     createBody.caption = caption || '';
   }
+  if(Array.isArray(userTags) && userTags.length > 0){
+    createBody.user_tags = userTags
+      .filter(t => t && t.username)
+      .map(t => ({ username: t.username, x: t.x, y: t.y }));
+  }
+  if(locationId){
+    createBody.location_id = locationId;
+  }
 
-const createRes = await fetch(createUrl, {
+const createRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(createBody)
@@ -52,8 +58,7 @@ const createRes = await fetch(createUrl, {
 
 let ready = false;
   for(let i = 0; i < 8; i++){
-    const statusUrl = 'https://graph.instagram.com/v21.0/' + creationId + '?fields=status_code&access_token=' + token;
-    const statusRes = await fetch(statusUrl);
+    const statusRes = await fetch(`https://graph.instagram.com/v21.0/${creationId}?fields=status_code&access_token=${token}`);
     const statusData = await statusRes.json();
     if(statusData.status_code === 'FINISHED'){ ready = true; break; }
     if(statusData.status_code === 'ERROR'){
@@ -65,12 +70,11 @@ let ready = false;
     throw new Error('A imagem demorou demais pra processar.');
   }
 
-const publishUrl = 'https://graph.instagram.com/v21.0/' + igId + '/media_publish';
-  const publishRes = await fetch(publishUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ creation_id: creationId, access_token: token })
-  });
+const publishRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media_publish`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ creation_id: creationId, access_token: token })
+});
   const publishData = await publishRes.json();
   if(publishData.error){
     throw new Error(publishData.error.message || 'Erro ao publicar.');
@@ -82,7 +86,7 @@ export default async function handler(req, res){
   const auth = req.headers.authorization || '';
   const secretParam = (req.query && req.query.secret) || '';
   const expected = process.env.CRON_SECRET;
-  const authorized = expected && (auth === 'Bearer ' + expected || secretParam === expected);
+  const authorized = expected && (auth === `Bearer ${expected}` || secretParam === expected);
 
 if(!authorized){
   return res.status(401).json({ error: 'Nao autorizado.' });

@@ -24,8 +24,7 @@ async function writeQueue(list){
     access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 0
+    allowOverwrite: true
   });
 }
 
@@ -44,7 +43,7 @@ if(req.method === 'GET'){
 }
 
 if(req.method === 'POST'){
-  const { igId, token, imageUrl, caption, mediaType, scheduledFor, accountName } = req.body || {};
+  const { igId, token, imageUrl, caption, mediaType, scheduledFor, accountName, userTags, locationId } = req.body || {};
   if(!igId || !token || !imageUrl || !scheduledFor){
     return res.status(400).json({ error: 'Faltam dados: igId, token, imageUrl e scheduledFor sao obrigatorios.' });
   }
@@ -60,6 +59,8 @@ if(req.method === 'POST'){
     mediaType: mediaType || 'IMAGE',
     scheduledFor: when.toISOString(),
     accountName: accountName || '',
+    userTags: Array.isArray(userTags) ? userTags.filter(t => t && t.username) : [],
+    locationId: locationId || '',
     createdAt: new Date().toISOString(),
     status: 'pending'
   });

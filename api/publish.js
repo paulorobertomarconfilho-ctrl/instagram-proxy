@@ -16,7 +16,7 @@ if (req.method !== 'POST') {
   return res.status(405).json({ error: 'Método não permitido. Use POST.' });
 }
 
-const { igId, token, imageUrl, caption, mediaType } = req.body || {};
+const { igId, token, imageUrl, caption, mediaType, userTags, locationId } = req.body || {};
 
 if (!igId || !token || !imageUrl) {
   return res.status(400).json({ error: 'Faltam dados: igId, token e imageUrl são obrigatórios.' });
@@ -33,6 +33,14 @@ try {
     createBody.media_type = 'STORIES';
   } else {
     createBody.caption = caption || '';
+  }
+  if (Array.isArray(userTags) && userTags.length > 0) {
+    createBody.user_tags = userTags
+      .filter(t => t && t.username)
+      .map(t => ({ username: t.username, x: t.x, y: t.y }));
+  }
+  if (locationId) {
+    createBody.location_id = locationId;
   }
 
   const createRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media`, {
