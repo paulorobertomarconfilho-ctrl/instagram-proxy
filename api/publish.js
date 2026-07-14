@@ -3,6 +3,8 @@
 // e devolve a resposta. Isso existe porque navegadores bloqueiam
 // chamadas diretas do JS do navegador pra graph.facebook.com (CORS).
 
+import { buildCarouselChildren, createCarouselParent, publishContainer } from './_igCarousel.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -16,10 +18,23 @@ if (req.method !== 'POST') {
   return res.status(405).json({ error: 'Método não permitido. Use POST.' });
 }
 
-const { igId, token, imageUrl, videoUrl, caption, mediaType, userTags } = req.body || {};
+const { igId, token, imageUrl, videoUrl, caption, mediaType, userTags, carouselItems } = req.body || {};
 
-if (!igId || !token || !(imageUrl || videoUrl)) {
-  return res.status(400).json({ error: 'Faltam dados: igId, token e imageUrl ou videoUrl são obrigatórios.' });
+const isCarousel = mediaType === 'CAROUSEL' && Array.isArray(carouselItems) && carouselItems.length > 0;
+
+if (!igId || !token) {
+  return res.status(400).json({ error: 'Faltam dados: igId e token são obrigatórios.' });
+}
+
+if (isCarousel) {
+  if (carouselItems.length < 2) {
+    return res.status(400).json({ error: 'O carrossel precisa de pelo menos 2 itens (fotos ou vídeos). Selecione mais na etapa "2. Imagem".' });
+  }
+  if (carouselItems.length > 10) {
+    return res.status(400).json({ error: 'O carrossel aceita no máximo 10 itens. Você selecionou ' + carouselItems.length + '.' });
+  }
+} else if (!imageUrl && !videoUrl) {
+  return res.status(400).json({ error: 'Faltam dados: imageUrl ou videoUrl são obrigatórios.' });
 }
 
 const isVideo = !!videoUrl;
@@ -27,6 +42,28 @@ const isStory = mediaType === 'STORIES';
 const isReel = mediaType === 'REELS';
 
 try {
+  if (isCarousel) {
+    const childrenIds = await buildCarouselChildren(igId, token, carouselItems);
+    const parentId = await createCarouselParent(igId, token, childrenIds, caption || '');
+
+    let ready = false;
+    for (let i = 0; i < 15; i++) {
+      const statusRes = await fetch(`https://graph.instagram.com/v21.0/${parentId}?fields=status_code&access_token=${token}`);
+      const statusData = await statusRes.json();
+      if (statusData.status_code === 'FINISHED') { ready = true; break; }
+      if (statusData.status_code === 'ERROR') {
+        return res.status(400).json({ error: 'O carrossel falhou ao processar no Instagram.' });
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    if (!ready) {
+      return res.status(400).json({ error: 'O carrossel demorou demais pra processar. Tenta "Agendar" em vez de "Publicar agora".' });
+    }
+
+    const postId = await publishContainer(igId, token, parentId);
+    return res.status(200).json({ success: true, post_id: postId });
+  }
+
   const createBody = { access_token: token };
 
   if (isVideo) {

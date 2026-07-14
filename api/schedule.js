@@ -43,9 +43,10 @@ if(req.method === 'GET'){
 }
 
 if(req.method === 'POST'){
-  const { id: bodyId, igId, token, imageUrl, videoUrl, caption, mediaType, format, scheduledFor, accountName, userTags } = req.body || {};
-  if(!igId || !token || !(imageUrl || videoUrl) || !scheduledFor){
-    return res.status(400).json({ error: 'Faltam dados: igId, token, imageUrl/videoUrl e scheduledFor sao obrigatorios.' });
+  const { id: bodyId, igId, token, imageUrl, videoUrl, caption, mediaType, format, scheduledFor, accountName, userTags, carouselItems } = req.body || {};
+  const isCarousel = mediaType === 'CAROUSEL' && Array.isArray(carouselItems) && carouselItems.length >= 2;
+  if(!igId || !token || !scheduledFor || !(imageUrl || videoUrl || isCarousel)){
+    return res.status(400).json({ error: 'Faltam dados: igId, token, scheduledFor e imageUrl/videoUrl (ou pelo menos 2 itens de carrossel) sao obrigatorios.' });
   }
   const when = new Date(scheduledFor);
   if(isNaN(when.getTime())){
@@ -65,6 +66,7 @@ if(req.method === 'POST'){
       ...list[idx],
       igId, token, imageUrl,
       videoUrl: videoUrl || '',
+      carouselItems: isCarousel ? carouselItems : [],
       caption: caption || '',
       mediaType: mediaType || 'IMAGE',
       format: format || list[idx].format || '',
@@ -82,6 +84,7 @@ if(req.method === 'POST'){
   list.push({
     id, igId, token, imageUrl,
     videoUrl: videoUrl || '',
+    carouselItems: isCarousel ? carouselItems : [],
     caption: caption || '',
     mediaType: mediaType || 'IMAGE',
     format: format || '',
