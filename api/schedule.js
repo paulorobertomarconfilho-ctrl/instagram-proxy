@@ -43,7 +43,7 @@ if(req.method === 'GET'){
 }
 
 if(req.method === 'POST'){
-  const { igId, token, imageUrl, caption, mediaType, scheduledFor, accountName, userTags, locationId } = req.body || {};
+  const { id: bodyId, igId, token, imageUrl, caption, mediaType, format, scheduledFor, accountName, userTags, locationId } = req.body || {};
   if(!igId || !token || !imageUrl || !scheduledFor){
     return res.status(400).json({ error: 'Faltam dados: igId, token, imageUrl e scheduledFor sao obrigatorios.' });
   }
@@ -52,11 +52,37 @@ if(req.method === 'POST'){
     return res.status(400).json({ error: 'Data/hora de agendamento invalida.' });
   }
   const list = await readQueue();
+
+  if(bodyId){
+    const idx = list.findIndex(item => item.id === bodyId);
+    if(idx === -1){
+      return res.status(404).json({ error: 'Agendamento nao encontrado (pode ja ter sido publicado ou cancelado).' });
+    }
+    if(list[idx].status !== 'pending'){
+      return res.status(400).json({ error: 'Esse agendamento ja foi publicado ou cancelado, nao da pra editar.' });
+    }
+    list[idx] = {
+      ...list[idx],
+      igId, token, imageUrl,
+      caption: caption || '',
+      mediaType: mediaType || 'IMAGE',
+      format: format || list[idx].format || '',
+      scheduledFor: when.toISOString(),
+      accountName: accountName || list[idx].accountName || '',
+      userTags: Array.isArray(userTags) ? userTags.filter(t => t && t.username) : [],
+      locationId: locationId || '',
+      updatedAt: new Date().toISOString()
+    };
+    await writeQueue(list);
+    return res.status(200).json({ success: true, id: bodyId });
+  }
+
   const id = 'sched-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
   list.push({
     id, igId, token, imageUrl,
     caption: caption || '',
     mediaType: mediaType || 'IMAGE',
+    format: format || '',
     scheduledFor: when.toISOString(),
     accountName: accountName || '',
     userTags: Array.isArray(userTags) ? userTags.filter(t => t && t.username) : [],
