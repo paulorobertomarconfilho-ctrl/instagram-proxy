@@ -43,7 +43,7 @@ if(req.method === 'GET'){
 }
 
 if(req.method === 'POST'){
-  const { id: bodyId, igId, token, imageUrl, caption, mediaType, format, scheduledFor, accountName, userTags, locationId } = req.body || {};
+  const { id: bodyId, igId, token, imageUrl, caption, mediaType, format, scheduledFor, accountName, userTags } = req.body || {};
   if(!igId || !token || !imageUrl || !scheduledFor){
     return res.status(400).json({ error: 'Faltam dados: igId, token, imageUrl e scheduledFor sao obrigatorios.' });
   }
@@ -70,7 +70,6 @@ if(req.method === 'POST'){
       scheduledFor: when.toISOString(),
       accountName: accountName || list[idx].accountName || '',
       userTags: Array.isArray(userTags) ? userTags.filter(t => t && t.username) : [],
-      locationId: locationId || '',
       updatedAt: new Date().toISOString()
     };
     await writeQueue(list);
@@ -86,7 +85,6 @@ if(req.method === 'POST'){
     scheduledFor: when.toISOString(),
     accountName: accountName || '',
     userTags: Array.isArray(userTags) ? userTags.filter(t => t && t.username) : [],
-    locationId: locationId || '',
     createdAt: new Date().toISOString(),
     status: 'pending'
   });

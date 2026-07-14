@@ -29,7 +29,7 @@ async function writeQueue(list){
   });
 }
 
-async function publishToInstagram({ igId, token, imageUrl, caption, mediaType, userTags, locationId }){
+async function publishToInstagram({ igId, token, imageUrl, caption, mediaType, userTags }){
   const createBody = { image_url: imageUrl, access_token: token };
   if(mediaType === 'STORIES'){
     createBody.media_type = 'STORIES';
@@ -40,9 +40,6 @@ async function publishToInstagram({ igId, token, imageUrl, caption, mediaType, u
     createBody.user_tags = userTags
       .filter(t => t && t.username)
       .map(t => ({ username: t.username, x: t.x, y: t.y }));
-  }
-  if(locationId){
-    createBody.location_id = locationId;
   }
 
 const createRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media`, {
