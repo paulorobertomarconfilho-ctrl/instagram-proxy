@@ -399,6 +399,18 @@
           <div id="imageTagsInfo" style="font-size:11.5px;color:var(--ink-soft);margin-top:8px;"></div>
         </div>
 
+        <div class="field" id="genVideoRow" style="margin-top:14px;border-top:1.5px solid var(--line);padding-top:14px;">
+          <label>Vídeo (opcional — só funciona com formato Reel ou Story)</label>
+          <div>
+            <input type="file" id="genVideoFile" accept="video/*" style="display:none;">
+            <button class="btn btn-ghost" id="genVideoUploadBtn" type="button" style="font-size:12px;padding:8px 14px;">🎥 Enviar vídeo</button>
+            <span id="videoStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
+          </div>
+          <input type="hidden" id="genVideoUrl" value="">
+          <div id="videoInfo" style="margin-top:8px;"></div>
+          <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;">Vídeo demora bem mais que foto pra processar no Instagram (pode levar minutos). Pra vídeo, prefira "Agendar" (mesmo que pra daqui a pouco) em vez de "Publicar agora" — o agendamento continua tentando automaticamente até terminar.</div>
+        </div>
+
         <div class="field" id="imageEditor" style="display:none;margin-top:6px;border-top:1.5px solid var(--line);padding-top:16px;">
           <label>Editar imagem</label>
           <div class="edit-canvas-wrap">
@@ -806,6 +818,36 @@ document.getElementById('genImageUploadBtn').addEventListener('click', ()=>{
   document.getElementById('genImageFile').click();
 });
 
+document.getElementById('genVideoUploadBtn').addEventListener('click', ()=>{
+  document.getElementById('genVideoFile').click();
+});
+
+document.getElementById('genVideoFile').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('videoStatus');
+  const format = document.getElementById('genFormat').value;
+  if(!format.startsWith('Reel') && format !== 'Story'){
+    statusEl.textContent = 'Vídeo só é usado com formato Reel ou Story. Troca o formato na aba "1. Conteúdo" antes de enviar.';
+    document.getElementById('genVideoFile').value = '';
+    return;
+  }
+  statusEl.textContent = 'Enviando vídeo (pode demorar dependendo do tamanho)...';
+  try{
+    const { upload } = await import('https://esm.sh/@vercel/blob/client');
+    const blob = await upload(file.name, file, {
+      access: 'public',
+      handleUploadUrl: 'https://instagram-proxy-neon.vercel.app/api/upload-video'
+    });
+    uploadedVideo = { url: blob.url, name: file.name };
+    document.getElementById('genVideoUrl').value = blob.url;
+    renderVideoInfo();
+    statusEl.textContent = 'Vídeo pronto: ' + file.name;
+  }catch(err){
+    statusEl.textContent = 'Erro ao enviar vídeo: ' + err.message;
+  }
+});
+
 function getTargetAspect(format){
   if(format === 'Story') return {w:1080, h:1920};
   if(format === 'Reel (roteiro + legenda)') return {w:1080, h:1920};
@@ -846,6 +888,32 @@ function cropImageToAspect(dataUrl, targetW, targetH){
 let uploadedImages = [];
 let imageTags = {}; // { [url]: [{username,x,y}, ...] }
 let editingScheduleId = null;
+let uploadedVideo = null; // { url, name }
+
+function renderVideoInfo(){
+  const el = document.getElementById('videoInfo');
+  if(!uploadedVideo){ el.innerHTML = ''; return; }
+  el.innerHTML = '';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;';
+  const label = document.createElement('span');
+  label.textContent = '🎬 ' + uploadedVideo.name;
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn btn-ghost';
+  removeBtn.style.cssText = 'font-size:11px;padding:4px 10px;';
+  removeBtn.textContent = 'Remover vídeo';
+  removeBtn.addEventListener('click', ()=>{
+    uploadedVideo = null;
+    document.getElementById('genVideoUrl').value = '';
+    document.getElementById('genVideoFile').value = '';
+    document.getElementById('videoStatus').textContent = '';
+    renderVideoInfo();
+  });
+  row.appendChild(label);
+  row.appendChild(removeBtn);
+  el.appendChild(row);
+}
 
 function setScheduleButtonLabel(){
   const btn = document.getElementById('genScheduleBtn');
@@ -885,6 +953,11 @@ function openLogEntryForReuse(entry){
   document.getElementById('imageGallery').innerHTML = '';
   document.getElementById('imageTagsInfo').textContent = '';
   document.getElementById('imageEditor').style.display = 'none';
+  uploadedVideo = null;
+  document.getElementById('genVideoUrl').value = '';
+  document.getElementById('genVideoFile').value = '';
+  document.getElementById('videoStatus').textContent = '';
+  renderVideoInfo();
   document.getElementById('genProductLinks').value = '';
   document.getElementById('genScheduleAt').value = '';
   document.getElementById('publishStatus').className = 'publish-status';
@@ -911,6 +984,11 @@ function openScheduleForEdit(item){
     imageTags[item.imageUrl] = item.userTags;
   }
   document.getElementById('imageEditor').style.display = 'none';
+  uploadedVideo = item.videoUrl ? { url: item.videoUrl, name: 'vídeo salvo' } : null;
+  document.getElementById('genVideoUrl').value = item.videoUrl || '';
+  document.getElementById('genVideoFile').value = '';
+  document.getElementById('videoStatus').textContent = '';
+  renderVideoInfo();
   document.getElementById('genProductLinks').value = '';
   document.getElementById('genScheduleAt').value = toLocalDatetimeInputValue(item.scheduledFor);
   document.getElementById('publishStatus').className = 'publish-status';
@@ -1181,29 +1259,45 @@ document.getElementById('genImageFile').addEventListener('change', async (e)=>{
   statusEl.textContent = uploadedImages.length + ' imagem' + (uploadedImages.length>1?'s':'') + ' pronta' + (uploadedImages.length>1?'s':'') + '. Clique numa miniatura pra escolher.';
 });
 
+function mediaTypeLabel(mt){
+  if(mt === 'STORIES') return 'Story';
+  if(mt === 'REELS') return 'Reel';
+  if(mt === 'VIDEO') return 'Vídeo';
+  return 'Post';
+}
+
+function computeMediaType(format, hasVideo){
+  if(format === 'Story') return 'STORIES';
+  if(format.startsWith('Reel') && hasVideo) return 'REELS';
+  if(hasVideo) return 'VIDEO';
+  return 'IMAGE';
+}
+
 document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
   const acc = accounts.find(a=>a.id===activeAccountId);
   const statusBox = document.getElementById('publishStatus');
   const imageUrl = document.getElementById('genImageUrl').value.trim();
+  const videoUrl = document.getElementById('genVideoUrl').value.trim();
   const manualText = document.getElementById('genManualText').value.trim();
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
   const userTags = imageTags[imageUrl] || [];
+  const mediaType = computeMediaType(format, !!videoUrl);
 
   if(!acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
     statusBox.textContent = 'Conecta o Instagram primeiro (link "Conectar Instagram" no card da conta).';
     return;
   }
-  if(!imageUrl){
+  if(!imageUrl && !videoUrl){
     statusBox.className = 'publish-status err';
-    statusBox.textContent = 'Cola o link público da imagem antes de publicar.';
+    statusBox.textContent = 'Cola o link público da imagem ou envia um vídeo antes de publicar.';
     return;
   }
 
   statusBox.className = 'publish-status';
   statusBox.style.display = 'block';
-  statusBox.innerHTML = '<span class="loading-dots">Publicando</span>';
+  statusBox.innerHTML = '<span class="loading-dots">' + (videoUrl ? 'Publicando (vídeo pode demorar bem mais)' : 'Publicando') + '</span>';
 
   try{
     const proxyRes = await fetch('https://instagram-proxy-neon.vercel.app/api/publish', {
@@ -1213,8 +1307,9 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
         igId: acc.igId,
         token: acc.igToken,
         imageUrl: imageUrl,
+        videoUrl: videoUrl,
         caption: caption,
-        mediaType: format === 'Story' ? 'STORIES' : 'IMAGE',
+        mediaType: mediaType,
         userTags: userTags
       })
     });
@@ -1236,7 +1331,7 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
         format, topic, content: caption,
         mediaId: data.post_id,
         igId: acc.igId,
-        mediaType: format === 'Story' ? 'STORIES' : 'IMAGE'
+        mediaType: mediaType
       });
       await persistLog();
       renderLog();
@@ -1262,11 +1357,13 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
   const acc = accounts.find(a=>a.id===activeAccountId);
   const statusBox = document.getElementById('publishStatus');
   const imageUrl = document.getElementById('genImageUrl').value.trim();
+  const videoUrl = document.getElementById('genVideoUrl').value.trim();
   const manualText = document.getElementById('genManualText').value.trim();
   const caption = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   const format = document.getElementById('genFormat').value;
   const scheduleAt = document.getElementById('genScheduleAt').value;
   const userTags = imageTags[imageUrl] || [];
+  const mediaType = computeMediaType(format, !!videoUrl);
 
   if(!acc || !acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
@@ -1275,9 +1372,9 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
       : 'Conecta o Instagram primeiro (link "Conectar Instagram" no card da conta).';
     return;
   }
-  if(!imageUrl){
+  if(!imageUrl && !videoUrl){
     statusBox.className = 'publish-status err';
-    statusBox.textContent = 'Cola o link publico da imagem antes de agendar.';
+    statusBox.textContent = 'Cola o link publico da imagem ou envia um vídeo antes de agendar.';
     return;
   }
   if(!scheduleAt){
@@ -1304,8 +1401,9 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
         igId: acc.igId,
         token: acc.igToken,
         imageUrl: imageUrl,
+        videoUrl: videoUrl,
         caption: caption,
-        mediaType: format === 'Story' ? 'STORIES' : 'IMAGE',
+        mediaType: mediaType,
         format: format,
         scheduledFor: new Date(scheduleAt).toISOString(),
         accountName: acc.name,
@@ -1358,7 +1456,7 @@ function renderPublished(items){
     div.innerHTML = `
       <span class="mono" style="font-size:11px;color:var(--slate);">${when}</span>
       <span class="tag" style="background:var(--sage)">${escapeHtml(item.accountName || '')}</span>
-      <span class="caption"><span class="format">${item.mediaType === 'STORIES' ? 'Story' : 'Post'}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
+      <span class="caption"><span class="format">${mediaTypeLabel(item.mediaType)}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
       <span>${metricsHtml}</span>
       `;
     el.appendChild(div);
@@ -1388,7 +1486,7 @@ function renderScheduled(items){
     div.innerHTML = `
       <span class="mono" style="font-size:11px;color:var(--slate);">${when}</span>
       <span class="tag" style="background:var(--purple)">${escapeHtml(item.accountName || '')}</span>
-      <span class="caption"><span class="format">${item.mediaType === 'STORIES' ? 'Story' : 'Post'}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
+      <span class="caption"><span class="format">${mediaTypeLabel(item.mediaType)}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
       <span style="display:flex;gap:6px;">
         <button class="btn btn-ghost" data-edit-id="${item.id}" style="padding:6px 10px;font-size:11px;">Editar</button>
         <button class="btn btn-ghost" data-cancel-id="${item.id}" style="padding:6px 10px;font-size:11px;">Cancelar</button>
