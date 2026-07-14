@@ -261,6 +261,17 @@
   .ig-preview-media img, .ig-preview-media video{ width:100%; height:100%; object-fit:cover; display:block; }
   .ig-preview-media .placeholder{ color:#8e8e8e; font-size:11.5px; text-align:center; padding:20px; line-height:1.4; }
   .ig-preview-badge{ position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; font-size:9.5px; padding:2px 7px; border-radius:6px; font-weight:700; letter-spacing:0.02em; }
+  .ig-preview-slides{ display:flex; width:100%; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .ig-preview-slides::-webkit-scrollbar{ display:none; }
+  .ig-preview-slide{ flex:0 0 100%; width:100%; height:100%; scroll-snap-align:start; position:relative; }
+  .ig-preview-slide img, .ig-preview-slide video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ig-preview-slide-num{ position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.6); color:#fff; font-size:9.5px; padding:2px 6px; border-radius:6px; font-weight:700; }
+  .ig-preview-dots{ position:absolute; bottom:8px; left:0; right:0; display:flex; justify-content:center; gap:4px; pointer-events:none; }
+  .ig-preview-dot{ width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.55); }
+  .ig-preview-dot.active{ background:#fff; }
+  .ig-preview-arrow{ position:absolute; top:50%; transform:translateY(-50%); width:24px; height:24px; border-radius:50%; background:rgba(255,255,255,0.9); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; font-weight:700; color:#111; box-shadow:0 1px 4px rgba(0,0,0,0.25); z-index:2; }
+  .ig-preview-arrow.prev{ left:6px; }
+  .ig-preview-arrow.next{ right:6px; }
   .ig-preview-actions{ display:flex; align-items:center; gap:13px; padding:9px 11px 2px; font-size:18px; color:#111; }
   .ig-preview-actions span:last-child{ margin-left:auto; }
   .ig-preview-caption{ padding:5px 11px 13px; font-size:12px; line-height:1.4; color:#111; }
@@ -622,20 +633,66 @@ function renderIgPreview(){
   const carousel = isCarouselFormat();
   const badge = format === 'Story' ? 'Story' : (format.startsWith('Reel') ? 'Reel' : (carousel ? 'Carrossel · ' + carouselSelection.length : 'Post'));
 
-  let mediaInner;
+  mediaEl.innerHTML = '';
+
   if(carousel && carouselSelection.length > 0){
-    const first = carouselSelection[0];
-    mediaInner = first.type === 'video'
-      ? '<video src="' + first.url + '" muted loop autoplay playsinline></video>'
-      : '<img src="' + first.url + '">';
+    const slidesWrap = document.createElement('div');
+    slidesWrap.className = 'ig-preview-slides';
+    carouselSelection.forEach((item, i) => {
+      const slide = document.createElement('div');
+      slide.className = 'ig-preview-slide';
+      slide.innerHTML = (item.type === 'video'
+        ? '<video src="' + item.url + '" muted loop autoplay playsinline></video>'
+        : '<img src="' + item.url + '">')
+        + '<span class="ig-preview-slide-num">' + (i+1) + '/' + carouselSelection.length + '</span>';
+      slidesWrap.appendChild(slide);
+    });
+    mediaEl.appendChild(slidesWrap);
+
+    if(carouselSelection.length > 1){
+      const dots = document.createElement('div');
+      dots.className = 'ig-preview-dots';
+      carouselSelection.forEach((_, i) => {
+        const dot = document.createElement('span');
+        dot.className = 'ig-preview-dot' + (i === 0 ? ' active' : '');
+        dots.appendChild(dot);
+      });
+      mediaEl.appendChild(dots);
+
+      const goTo = (idx) => {
+        idx = Math.max(0, Math.min(carouselSelection.length - 1, idx));
+        slidesWrap.scrollTo({ left: idx * slidesWrap.clientWidth, behavior: 'smooth' });
+      };
+      const prevBtn = document.createElement('button');
+      prevBtn.type = 'button'; prevBtn.className = 'ig-preview-arrow prev'; prevBtn.textContent = '‹';
+      prevBtn.addEventListener('click', () => {
+        goTo(Math.round(slidesWrap.scrollLeft / slidesWrap.clientWidth) - 1);
+      });
+      const nextBtn = document.createElement('button');
+      nextBtn.type = 'button'; nextBtn.className = 'ig-preview-arrow next'; nextBtn.textContent = '›';
+      nextBtn.addEventListener('click', () => {
+        goTo(Math.round(slidesWrap.scrollLeft / slidesWrap.clientWidth) + 1);
+      });
+      mediaEl.appendChild(prevBtn);
+      mediaEl.appendChild(nextBtn);
+
+      slidesWrap.addEventListener('scroll', () => {
+        const idx = Math.round(slidesWrap.scrollLeft / slidesWrap.clientWidth);
+        dots.querySelectorAll('.ig-preview-dot').forEach((d,i) => d.classList.toggle('active', i === idx));
+      });
+    }
   } else if(videoUrl){
-    mediaInner = '<video src="' + videoUrl + '" muted loop autoplay playsinline></video>';
+    mediaEl.innerHTML = '<video src="' + videoUrl + '" muted loop autoplay playsinline></video>';
   } else if(imageUrl){
-    mediaInner = '<img src="' + imageUrl + '">';
+    mediaEl.innerHTML = '<img src="' + imageUrl + '">';
   } else {
-    mediaInner = '<div class="placeholder">Escolhe uma imagem ou vídeo na etapa "2. Imagem" pra ver a prévia aqui</div>';
+    mediaEl.innerHTML = '<div class="placeholder">Escolhe uma imagem ou vídeo na etapa "2. Imagem" pra ver a prévia aqui</div>';
   }
-  mediaEl.innerHTML = mediaInner + '<span class="ig-preview-badge">' + badge + '</span>';
+
+  const badgeEl = document.createElement('span');
+  badgeEl.className = 'ig-preview-badge';
+  badgeEl.textContent = badge;
+  mediaEl.appendChild(badgeEl);
 
   const capEl = document.getElementById('igPreviewCaption');
   if(format === 'Story'){
