@@ -276,11 +276,14 @@
   <div class="section-label" style="margin-top:20px;">Agendados</div>
   <div class="log" id="scheduledList"></div>
 
+  <div class="section-label" style="margin-top:20px;">Publicados (com métricas)</div>
+  <div class="log" id="publishedList"></div>
+
 <!-- Modal: nova conta -->
 <div class="overlay" id="overlayAccount">
   <div class="modal" style="position:relative;">
     <button class="close-x" data-close="overlayAccount">&times;</button>
-    <h2>Nova conta</h2>
+    <h2 id="accModalTitle">Nova conta</h2>
     <div class="sub">Cada conta é um experimento separado.</div>
     <div class="field">
       <label>Nome / @usuário</label>
@@ -463,6 +466,7 @@ const LANE_COLORS = ['#7C3AED','#EC4899','#F59E0B','#10B981','#3B82F6','#F43F5E'
 let accounts = [];
 let logEntries = [];
 let activeAccountId = null;
+let editingAccountId = null;
 
 // Camada de armazenamento universal: usa window.storage aqui no chat,
 // e localStorage automaticamente quando a ferramenta está hospedada (fora do chat).
@@ -544,6 +548,7 @@ function renderLanes(){
       </div>
       <div class="lane-actions">
         <button class="btn btn-primary" data-gen-id="${acc.id}">Gerar conteúdo</button>
+        <button class="btn btn-ghost" data-edit-acc-id="${acc.id}">Editar</button>
         <button class="btn btn-ghost" data-del-id="${acc.id}">Remover</button>
       </div>
       <div class="connect-row">
@@ -600,9 +605,27 @@ function renderLanes(){
       renderLanes();
     });
   });
+  el.querySelectorAll('[data-edit-acc-id]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const id = e.target.getAttribute('data-edit-acc-id');
+      const acc = accounts.find(a=>a.id===id);
+      if(!acc) return;
+      editingAccountId = id;
+      document.getElementById('accModalTitle').textContent = 'Editar conta';
+      document.getElementById('saveAccountBtn').textContent = 'Salvar alterações';
+      document.getElementById('accName').value = acc.name || '';
+      document.getElementById('accNiche').value = acc.niche || '';
+      document.getElementById('accTone').value = acc.tone || document.getElementById('accTone').options[0].value;
+      document.getElementById('overlayAccount').classList.add('show');
+    });
+  });
   document.getElementById('addLaneBtn').addEventListener('click', ()=>{
+    editingAccountId = null;
+    document.getElementById('accModalTitle').textContent = 'Nova conta';
+    document.getElementById('saveAccountBtn').textContent = 'Criar conta';
     document.getElementById('accName').value='';
     document.getElementById('accNiche').value='';
+    document.getElementById('accTone').selectedIndex = 0;
     document.getElementById('overlayAccount').classList.add('show');
   });
 }
@@ -629,11 +652,16 @@ function renderLog(){
       <div class="cal-date">${date} <span class="badge">${dayEntries.length} post${dayEntries.length>1?'s':''}</span></div>
       ${dayEntries.map(entry => {
         flatEntries.push(entry);
+        const metricsHtml = entry.mediaId ? `
+          <button class="btn btn-ghost" data-metrics-media="${entry.mediaId}" data-metrics-igid="${entry.igId||''}" data-metrics-type="${entry.mediaType||''}" type="button" style="font-size:10.5px;padding:4px 8px;margin-top:6px;">📊 Ver métricas</button>
+          <div class="metrics-result" style="font-size:11px;color:var(--ink-soft);margin-top:4px;"></div>
+        ` : '';
         return `
         <div class="cal-card" title="Clique pra reabrir e reusar este post">
           <span class="cal-tag" style="background:${entry.color}">${escapeHtml(entry.accountName)}</span>
           <div class="cal-format">${escapeHtml(entry.format)} · ${escapeHtml(entry.topic)}</div>
           <div class="cal-text">${escapeHtml(entry.content)}</div>
+          ${metricsHtml}
         </div>
       `;
       }).join('')}
@@ -643,6 +671,39 @@ function renderLog(){
   el.querySelectorAll('.cal-card').forEach((card, idx) => {
     card.addEventListener('click', () => openLogEntryForReuse(flatEntries[idx]));
   });
+  el.querySelectorAll('[data-metrics-media]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const mediaId = btn.getAttribute('data-metrics-media');
+      const igId = btn.getAttribute('data-metrics-igid');
+      const mediaType = btn.getAttribute('data-metrics-type');
+      fetchAndShowMetrics(mediaId, igId, mediaType, btn.nextElementSibling);
+    });
+  });
+}
+
+async function fetchAndShowMetrics(mediaId, igId, mediaType, containerEl){
+  const acc = accounts.find(a => a.igId === igId);
+  if(!acc || !acc.igToken){
+    containerEl.textContent = 'Conecta essa conta de novo pra ver as métricas.';
+    return;
+  }
+  containerEl.textContent = 'Carregando métricas...';
+  try{
+    const res = await fetch('https://instagram-proxy-neon.vercel.app/api/insights', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ token: acc.igToken, mediaId, mediaType })
+    });
+    const data = await res.json();
+    if(data.error){ containerEl.textContent = 'Erro: ' + data.error; return; }
+    const m = data.metrics || {};
+    const labels = { reach:'Alcance', likes:'Curtidas', comments:'Comentários', saved:'Salvamentos', shares:'Compartilhamentos', total_interactions:'Interações', views:'Visualizações', replies:'Respostas' };
+    const parts = Object.keys(labels).filter(k => typeof m[k] !== 'undefined' && m[k] !== null).map(k => labels[k] + ': ' + m[k]);
+    containerEl.textContent = parts.length ? parts.join(' · ') : 'Ainda sem dados suficientes (pode levar até 48h pra aparecer, e Stories só mostram métricas nas primeiras 24h).';
+  }catch(err){
+    containerEl.textContent = 'Erro ao buscar métricas: ' + err.message;
+  }
 }
 
 function escapeHtml(str){
@@ -667,10 +728,16 @@ document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
   const niche = document.getElementById('accNiche').value.trim();
   const tone = document.getElementById('accTone').value;
   if(!name){ return; }
-  accounts.push({
-    id: 'acc-' + Date.now(),
-    name, niche, tone
-  });
+  if(editingAccountId){
+    const acc = accounts.find(a=>a.id===editingAccountId);
+    if(acc){ acc.name = name; acc.niche = niche; acc.tone = tone; }
+  } else {
+    accounts.push({
+      id: 'acc-' + Date.now(),
+      name, niche, tone
+    });
+  }
+  editingAccountId = null;
   await persistAccounts();
   renderLanes();
   closeOverlay('overlayAccount');
@@ -1159,6 +1226,21 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
 
     statusBox.className = 'publish-status ok';
     statusBox.textContent = 'Publicado com sucesso no Instagram!';
+
+    if(data.post_id){
+      const topic = document.getElementById('genTopic').value.trim();
+      logEntries.push({
+        date: new Date().toLocaleDateString('pt-BR'),
+        accountName: acc.name,
+        color: colorFor(acc.id),
+        format, topic, content: caption,
+        mediaId: data.post_id,
+        igId: acc.igId,
+        mediaType: format === 'Story' ? 'STORIES' : 'IMAGE'
+      });
+      await persistLog();
+      renderLog();
+    }
   }catch(e){
     statusBox.className = 'publish-status err';
     statusBox.textContent = 'Não foi possível publicar: ' + e.message;
@@ -1251,9 +1333,44 @@ async function loadScheduled(){
     const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule');
     const data = await res.json();
     renderScheduled(data.items || []);
+    renderPublished(data.items || []);
   }catch(e){
     console.error('Falha ao carregar agendamentos', e);
   }
+}
+
+function renderPublished(items){
+  const el = document.getElementById('publishedList');
+  const published = items.filter(i => i.status === 'published').slice().reverse();
+  if(published.length === 0){
+    el.innerHTML = '<div class="log-empty">Nada publicado pelo agendamento ainda.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  published.forEach(item => {
+    const when = new Date(item.publishedAt || item.scheduledFor).toLocaleString('pt-BR');
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const metricsHtml = item.postId ? `
+      <button class="btn btn-ghost" data-pub-metrics="${item.postId}" data-pub-igid="${item.igId||''}" data-pub-type="${item.mediaType||''}" type="button" style="font-size:10.5px;padding:4px 8px;">📊 Ver métricas</button>
+      <div class="metrics-result" style="font-size:11px;color:var(--ink-soft);margin-top:4px;"></div>
+    ` : '';
+    div.innerHTML = `
+      <span class="mono" style="font-size:11px;color:var(--slate);">${when}</span>
+      <span class="tag" style="background:var(--sage)">${escapeHtml(item.accountName || '')}</span>
+      <span class="caption"><span class="format">${item.mediaType === 'STORIES' ? 'Story' : 'Post'}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
+      <span>${metricsHtml}</span>
+      `;
+    el.appendChild(div);
+  });
+  el.querySelectorAll('[data-pub-metrics]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mediaId = btn.getAttribute('data-pub-metrics');
+      const igId = btn.getAttribute('data-pub-igid');
+      const mediaType = btn.getAttribute('data-pub-type');
+      fetchAndShowMetrics(mediaId, igId, mediaType, btn.nextElementSibling);
+    });
+  });
 }
 
 function renderScheduled(items){
