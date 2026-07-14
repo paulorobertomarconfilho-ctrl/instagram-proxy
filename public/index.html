@@ -185,6 +185,17 @@
   .cal-card .cal-text{font-size:12px;line-height:1.4;color:var(--ink);white-space:pre-wrap;max-height:110px;overflow:hidden;}
   .cal-card{transition:box-shadow .12s ease, transform .12s ease;}
   .cal-card:hover{box-shadow:0 4px 14px rgba(124,58,237,0.18);transform:translateY(-2px);}
+  .cal-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
+  .cal-time{font-size:10px;color:var(--slate);font-weight:600;white-space:nowrap;}
+  .metrics-block{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);}
+  .metrics-row{display:flex;flex-wrap:wrap;gap:5px;}
+  .metric-chip{
+    display:inline-flex;align-items:center;gap:3px;
+    background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:3px 8px;font-size:10px;color:var(--ink-soft);font-weight:600;white-space:nowrap;
+  }
+  .metric-chip .val{color:var(--purple-dark);font-weight:700;}
+  .metrics-loading{font-size:10.5px;color:var(--slate);}
   .editing-hint{display:none;background:#EFE9FC;color:var(--purple-dark);border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;}
 
   /* Painel "Gerar conteúdo" em tela cheia, com abas por etapa */
@@ -665,12 +676,16 @@ function renderLog(){
       ${dayEntries.map(entry => {
         flatEntries.push(entry);
         const metricsHtml = entry.mediaId ? `
-          <button class="btn btn-ghost" data-metrics-media="${entry.mediaId}" data-metrics-igid="${entry.igId||''}" data-metrics-type="${entry.mediaType||''}" type="button" style="font-size:10.5px;padding:4px 8px;margin-top:6px;">📊 Ver métricas</button>
-          <div class="metrics-result" style="font-size:11px;color:var(--ink-soft);margin-top:4px;"></div>
+          <div class="metrics-block">
+            <div class="metrics-result metrics-auto" data-metrics-media="${entry.mediaId}" data-metrics-igid="${entry.igId||''}" data-metrics-type="${entry.mediaType||''}"><span class="metrics-loading">Carregando métricas...</span></div>
+          </div>
         ` : '';
         return `
         <div class="cal-card" title="Clique pra reabrir e reusar este post">
-          <span class="cal-tag" style="background:${entry.color}">${escapeHtml(entry.accountName)}</span>
+          <div class="cal-card-top">
+            <span class="cal-tag" style="background:${entry.color}">${escapeHtml(entry.accountName)}</span>
+            ${entry.time ? `<span class="cal-time">${escapeHtml(entry.time)}</span>` : ''}
+          </div>
           <div class="cal-format">${escapeHtml(entry.format)} · ${escapeHtml(entry.topic)}</div>
           <div class="cal-text">${escapeHtml(entry.content)}</div>
           ${metricsHtml}
@@ -683,24 +698,34 @@ function renderLog(){
   el.querySelectorAll('.cal-card').forEach((card, idx) => {
     card.addEventListener('click', () => openLogEntryForReuse(flatEntries[idx]));
   });
-  el.querySelectorAll('[data-metrics-media]').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const mediaId = btn.getAttribute('data-metrics-media');
-      const igId = btn.getAttribute('data-metrics-igid');
-      const mediaType = btn.getAttribute('data-metrics-type');
-      fetchAndShowMetrics(mediaId, igId, mediaType, btn.nextElementSibling);
-    });
+  el.querySelectorAll('.metrics-auto').forEach(container=>{
+    const mediaId = container.getAttribute('data-metrics-media');
+    const igId = container.getAttribute('data-metrics-igid');
+    const mediaType = container.getAttribute('data-metrics-type');
+    fetchAndShowMetrics(mediaId, igId, mediaType, container);
   });
+}
+
+function renderMetricChips(containerEl, metrics){
+  const icons = { reach:'👁️', likes:'❤️', comments:'💬', saved:'🔖', shares:'↗️', total_interactions:'⚡', views:'▶️', replies:'↩️' };
+  const labels = { reach:'Alcance', likes:'Curtidas', comments:'Coment.', saved:'Salvos', shares:'Compart.', total_interactions:'Interações', views:'Views', replies:'Respostas' };
+  const keys = Object.keys(labels).filter(k => typeof metrics[k] !== 'undefined' && metrics[k] !== null);
+  if(keys.length === 0){
+    containerEl.innerHTML = '<span class="metrics-loading">Ainda sem dados suficientes (pode levar até 48h pra aparecer, e Stories só mostram métricas nas primeiras 24h).</span>';
+    return;
+  }
+  containerEl.innerHTML = '<div class="metrics-row">' + keys.map(k =>
+    `<span class="metric-chip">${icons[k]||''} ${labels[k]} <span class="val">${escapeHtml(String(metrics[k]))}</span></span>`
+  ).join('') + '</div>';
 }
 
 async function fetchAndShowMetrics(mediaId, igId, mediaType, containerEl){
   const acc = accounts.find(a => a.igId === igId);
   if(!acc || !acc.igToken){
-    containerEl.textContent = 'Conecta essa conta de novo pra ver as métricas.';
+    containerEl.innerHTML = '<span class="metrics-loading">Conecta essa conta de novo pra ver as métricas.</span>';
     return;
   }
-  containerEl.textContent = 'Carregando métricas...';
+  containerEl.innerHTML = '<span class="metrics-loading">Carregando métricas...</span>';
   try{
     const res = await fetch('https://instagram-proxy-neon.vercel.app/api/insights', {
       method: 'POST',
@@ -708,13 +733,10 @@ async function fetchAndShowMetrics(mediaId, igId, mediaType, containerEl){
       body: JSON.stringify({ token: acc.igToken, mediaId, mediaType })
     });
     const data = await res.json();
-    if(data.error){ containerEl.textContent = 'Erro: ' + data.error; return; }
-    const m = data.metrics || {};
-    const labels = { reach:'Alcance', likes:'Curtidas', comments:'Comentários', saved:'Salvamentos', shares:'Compartilhamentos', total_interactions:'Interações', views:'Visualizações', replies:'Respostas' };
-    const parts = Object.keys(labels).filter(k => typeof m[k] !== 'undefined' && m[k] !== null).map(k => labels[k] + ': ' + m[k]);
-    containerEl.textContent = parts.length ? parts.join(' · ') : 'Ainda sem dados suficientes (pode levar até 48h pra aparecer, e Stories só mostram métricas nas primeiras 24h).';
+    if(data.error){ containerEl.innerHTML = '<span class="metrics-loading">Erro: ' + escapeHtml(data.error) + '</span>'; return; }
+    renderMetricChips(containerEl, data.metrics || {});
   }catch(err){
-    containerEl.textContent = 'Erro ao buscar métricas: ' + err.message;
+    containerEl.innerHTML = '<span class="metrics-loading">Erro ao buscar métricas: ' + escapeHtml(err.message) + '</span>';
   }
 }
 
@@ -805,6 +827,7 @@ document.getElementById('genSaveBtn').addEventListener('click', async ()=>{
   const content = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   logEntries.push({
     date: new Date().toLocaleDateString('pt-BR'),
+    time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
     accountName: acc.name,
     color: colorFor(acc.id),
     format, topic, content
@@ -1481,8 +1504,7 @@ function renderPublished(items){
     const div = document.createElement('div');
     div.className = 'log-entry';
     const metricsHtml = item.postId ? `
-      <button class="btn btn-ghost" data-pub-metrics="${item.postId}" data-pub-igid="${item.igId||''}" data-pub-type="${item.mediaType||''}" type="button" style="font-size:10.5px;padding:4px 8px;">📊 Ver métricas</button>
-      <div class="metrics-result" style="font-size:11px;color:var(--ink-soft);margin-top:4px;"></div>
+      <div class="metrics-result metrics-auto" data-metrics-media="${item.postId}" data-metrics-igid="${item.igId||''}" data-metrics-type="${item.mediaType||''}"><span class="metrics-loading">Carregando métricas...</span></div>
     ` : '';
     div.innerHTML = `
       <span class="mono" style="font-size:11px;color:var(--slate);">${when}</span>
@@ -1492,13 +1514,11 @@ function renderPublished(items){
       `;
     el.appendChild(div);
   });
-  el.querySelectorAll('[data-pub-metrics]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const mediaId = btn.getAttribute('data-pub-metrics');
-      const igId = btn.getAttribute('data-pub-igid');
-      const mediaType = btn.getAttribute('data-pub-type');
-      fetchAndShowMetrics(mediaId, igId, mediaType, btn.nextElementSibling);
-    });
+  el.querySelectorAll('.metrics-auto').forEach(container=>{
+    const mediaId = container.getAttribute('data-metrics-media');
+    const igId = container.getAttribute('data-metrics-igid');
+    const mediaType = container.getAttribute('data-metrics-type');
+    fetchAndShowMetrics(mediaId, igId, mediaType, container);
   });
 }
 
