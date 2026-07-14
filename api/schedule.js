@@ -43,9 +43,9 @@ if(req.method === 'GET'){
 }
 
 if(req.method === 'POST'){
-  const { id: bodyId, igId, token, imageUrl, caption, mediaType, format, scheduledFor, accountName, userTags } = req.body || {};
-  if(!igId || !token || !imageUrl || !scheduledFor){
-    return res.status(400).json({ error: 'Faltam dados: igId, token, imageUrl e scheduledFor sao obrigatorios.' });
+  const { id: bodyId, igId, token, imageUrl, videoUrl, caption, mediaType, format, scheduledFor, accountName, userTags } = req.body || {};
+  if(!igId || !token || !(imageUrl || videoUrl) || !scheduledFor){
+    return res.status(400).json({ error: 'Faltam dados: igId, token, imageUrl/videoUrl e scheduledFor sao obrigatorios.' });
   }
   const when = new Date(scheduledFor);
   if(isNaN(when.getTime())){
@@ -64,13 +64,15 @@ if(req.method === 'POST'){
     list[idx] = {
       ...list[idx],
       igId, token, imageUrl,
+      videoUrl: videoUrl || '',
       caption: caption || '',
       mediaType: mediaType || 'IMAGE',
       format: format || list[idx].format || '',
       scheduledFor: when.toISOString(),
       accountName: accountName || list[idx].accountName || '',
       userTags: Array.isArray(userTags) ? userTags.filter(t => t && t.username) : [],
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      creationId: null
     };
     await writeQueue(list);
     return res.status(200).json({ success: true, id: bodyId });
@@ -79,6 +81,7 @@ if(req.method === 'POST'){
   const id = 'sched-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
   list.push({
     id, igId, token, imageUrl,
+    videoUrl: videoUrl || '',
     caption: caption || '',
     mediaType: mediaType || 'IMAGE',
     format: format || '',
@@ -86,7 +89,8 @@ if(req.method === 'POST'){
     accountName: accountName || '',
     userTags: Array.isArray(userTags) ? userTags.filter(t => t && t.username) : [],
     createdAt: new Date().toISOString(),
-    status: 'pending'
+    status: 'pending',
+    creationId: null
   });
   await writeQueue(list);
   return res.status(200).json({ success: true, id });

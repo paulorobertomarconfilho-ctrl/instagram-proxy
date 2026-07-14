@@ -16,24 +16,40 @@ if (req.method !== 'POST') {
   return res.status(405).json({ error: 'Método não permitido. Use POST.' });
 }
 
-const { igId, token, imageUrl, caption, mediaType, userTags } = req.body || {};
+const { igId, token, imageUrl, videoUrl, caption, mediaType, userTags } = req.body || {};
 
-if (!igId || !token || !imageUrl) {
-  return res.status(400).json({ error: 'Faltam dados: igId, token e imageUrl são obrigatórios.' });
+if (!igId || !token || !(imageUrl || videoUrl)) {
+  return res.status(400).json({ error: 'Faltam dados: igId, token e imageUrl ou videoUrl são obrigatórios.' });
 }
 
+const isVideo = !!videoUrl;
 const isStory = mediaType === 'STORIES';
+const isReel = mediaType === 'REELS';
 
 try {
-  const createBody = {
-    image_url: imageUrl,
-    access_token: token
-  };
-  if (isStory) {
-    createBody.media_type = 'STORIES';
+  const createBody = { access_token: token };
+
+  if (isVideo) {
+    createBody.video_url = videoUrl;
+    if (isReel) {
+      createBody.media_type = 'REELS';
+    } else if (isStory) {
+      createBody.media_type = 'STORIES';
+    } else {
+      createBody.media_type = 'VIDEO';
+    }
+    if (!isStory) {
+      createBody.caption = caption || '';
+    }
   } else {
-    createBody.caption = caption || '';
+    createBody.image_url = imageUrl;
+    if (isStory) {
+      createBody.media_type = 'STORIES';
+    } else {
+      createBody.caption = caption || '';
+    }
   }
+
   if (Array.isArray(userTags) && userTags.length > 0) {
     createBody.user_tags = userTags
       .filter(t => t && t.username)
@@ -53,8 +69,12 @@ try {
 
   const creationId = createData.id;
 
+  // Vídeo demora bem mais que imagem pra processar no Instagram.
+  const maxAttempts = isVideo ? 80 : 8;
+  const delayMs = isVideo ? 3000 : 2000;
+
   let ready = false;
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < maxAttempts; i++) {
     const statusRes = await fetch(`https://graph.instagram.com/v21.0/${creationId}?fields=status_code&access_token=${token}`);
     const statusData = await statusRes.json();
     if (statusData.status_code === 'FINISHED') {
@@ -62,12 +82,16 @@ try {
       break;
     }
     if (statusData.status_code === 'ERROR') {
-      return res.status(400).json({ error: 'A imagem falhou ao processar no Instagram. Confira se o link é público e termina em .jpg/.png.' });
+      return res.status(400).json({ error: isVideo ? 'O vídeo falhou ao processar no Instagram. Confira o formato/tamanho do arquivo.' : 'A imagem falhou ao processar no Instagram. Confira se o link é público e termina em .jpg/.png.' });
     }
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, delayMs));
   }
   if (!ready) {
-    return res.status(400).json({ error: 'A imagem demorou demais pra processar. Tenta de novo em alguns segundos.' });
+    return res.status(400).json({
+      error: isVideo
+        ? 'O vídeo está demorando mais que o normal pra processar. Em vez de "Publicar agora", tenta "Agendar" (mesmo que pra daqui a poucos minutos) — o agendamento continua tentando automaticamente até terminar.'
+        : 'A imagem demorou demais pra processar. Tenta de novo em alguns segundos.'
+    });
   }
 
   const publishRes = await fetch(`https://graph.instagram.com/v21.0/${igId}/media_publish`, {
