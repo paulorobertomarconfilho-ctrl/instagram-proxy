@@ -183,6 +183,9 @@
   }
   .cal-card .cal-format{font-size:10.5px;color:var(--slate);margin-bottom:3px;}
   .cal-card .cal-text{font-size:12px;line-height:1.4;color:var(--ink);white-space:pre-wrap;max-height:110px;overflow:hidden;}
+  .cal-card{transition:box-shadow .12s ease, transform .12s ease;}
+  .cal-card:hover{box-shadow:0 4px 14px rgba(124,58,237,0.18);transform:translateY(-2px);}
+  .editing-hint{display:none;background:#EFE9FC;color:var(--purple-dark);border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;}
 
   /* Painel "Gerar conteúdo" em tela cheia, com abas por etapa */
   #overlayGen{ padding:0; align-items:stretch; justify-content:stretch; }
@@ -331,6 +334,7 @@
       <button class="close-x" data-close="overlayGen">&times;</button>
       <h2>Gerar conteúdo</h2>
       <div class="sub" id="genSub">para a conta</div>
+      <div class="editing-hint" id="editingScheduleHint"></div>
       <div class="step-tabs">
         <button class="step-tab active" type="button" data-step="1">1. Conteúdo</button>
         <button class="step-tab" type="button" data-step="2">2. Imagem</button>
@@ -362,6 +366,16 @@
           <label>Ou cole aqui o texto gerado no chat</label>
           <textarea id="genManualText" placeholder="Cola aqui a legenda/roteiro gerado no chat, se preferir"></textarea>
         </div>
+        <details style="margin-top:16px;border-top:1.5px solid var(--line);padding-top:12px;">
+          <summary style="cursor:pointer;font-size:11.5px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:0.04em;">Qual formato escolher? Vantagens e desvantagens</summary>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;font-size:12.5px;line-height:1.5;color:var(--ink);">
+            <div><strong>Reel (roteiro + legenda)</strong> — vídeo curto vertical. <span style="color:var(--sage);">A favor:</span> hoje é o formato que mais alcança gente que ainda não te segue — o Instagram empurra Reel pra descoberta. Bom pra mostrar o produto em uso. <span style="color:var(--red);">Contra:</span> dá mais trabalho (filmar e editar), precisa ter o vídeo pronto.</div>
+            <div><strong>Carrossel (5 slides)</strong> — várias imagens deslizáveis num post só. <span style="color:var(--sage);">A favor:</span> hoje é o que mais gera salvamento e comentário, ótimo pra comparar produtos ou explicar passo a passo, fácil de montar só com fotos. <span style="color:var(--red);">Contra:</span> alcança menos gente nova que o Reel — quem já te segue vê mais que estranho.</div>
+            <div><strong>Legenda de post único</strong> — uma foto só. <span style="color:var(--sage);">A favor:</span> mais rápido de publicar, direto pra um anúncio pontual. <span style="color:var(--red);">Contra:</span> hoje é o formato com menor engajamento dos quatro.</div>
+            <div><strong>Story</strong> — some do feed em 24h (ou fica fixado nos destaques). <span style="color:var(--sage);">A favor:</span> ótimo pra urgência ("só hoje", "últimas unidades"), permite enquete/caixinha de pergunta, não exige tanta produção. <span style="color:var(--red);">Contra:</span> alcança só quem já te segue e some rápido — não ajuda a atrair gente nova.</div>
+          </div>
+        </details>
+
         <div class="step-nav">
           <span></span>
           <button class="btn btn-ghost" type="button" data-goto-step="2">Próximo: Imagem →</button>
@@ -570,6 +584,7 @@ function renderLanes(){
       document.getElementById('imageEditor').style.display = 'none';
       document.getElementById('genProductLinks').value = '';
       document.getElementById('publishStatus').className = 'publish-status';
+      exitEditMode();
       setGenStep(1);
       document.getElementById('overlayGen').classList.add('show');
     });
@@ -611,21 +626,28 @@ function renderLog(){
     byDate[entry.date].push(entry);
   });
   el.innerHTML = '';
+  const flatEntries = [];
   Object.keys(byDate).forEach(date=>{
     const dayEntries = byDate[date];
     const dayDiv = document.createElement('div');
     dayDiv.className = 'cal-day';
     dayDiv.innerHTML = `
       <div class="cal-date">${date} <span class="badge">${dayEntries.length} post${dayEntries.length>1?'s':''}</span></div>
-      ${dayEntries.map(entry => `
-        <div class="cal-card">
+      ${dayEntries.map(entry => {
+        flatEntries.push(entry);
+        return `
+        <div class="cal-card" title="Clique pra reabrir e reusar este post">
           <span class="cal-tag" style="background:${entry.color}">${escapeHtml(entry.accountName)}</span>
           <div class="cal-format">${escapeHtml(entry.format)} · ${escapeHtml(entry.topic)}</div>
           <div class="cal-text">${escapeHtml(entry.content)}</div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     `;
     el.appendChild(dayDiv);
+  });
+  el.querySelectorAll('.cal-card').forEach((card, idx) => {
+    card.addEventListener('click', () => openLogEntryForReuse(flatEntries[idx]));
   });
 }
 
@@ -762,6 +784,88 @@ function cropImageToAspect(dataUrl, targetW, targetH){
 
 let uploadedImages = [];
 let imageTags = {}; // { [url]: [{username,x,y}, ...] }
+let editingScheduleId = null;
+
+function setScheduleButtonLabel(){
+  const btn = document.getElementById('genScheduleBtn');
+  if(btn) btn.textContent = editingScheduleId ? 'Salvar alterações' : 'Agendar publicação';
+}
+
+function toLocalDatetimeInputValue(iso){
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function exitEditMode(){
+  editingScheduleId = null;
+  const hint = document.getElementById('editingScheduleHint');
+  hint.style.display = 'none';
+  hint.textContent = '';
+  setScheduleButtonLabel();
+}
+
+function openLogEntryForReuse(entry){
+  const acc = accounts.find(a => a.name === entry.accountName) || accounts[0];
+  if(!acc) return;
+  activeAccountId = acc.id;
+  exitEditMode();
+  document.getElementById('genSub').textContent = 'para ' + acc.name;
+  document.getElementById('genFormat').value = entry.format || 'Reel (roteiro + legenda)';
+  document.getElementById('genTopic').value = entry.topic || '';
+  document.getElementById('genResult').style.display = 'none';
+  document.getElementById('genResult').dataset.generated = '';
+  document.getElementById('genManualText').value = entry.content || '';
+  document.getElementById('genImageUrl').value = '';
+  document.getElementById('uploadStatus').textContent = '';
+  document.getElementById('genImageFile').value = '';
+  uploadedImages = [];
+  imageTags = {};
+  document.getElementById('imageGallery').innerHTML = '';
+  document.getElementById('imageTagsInfo').textContent = '';
+  document.getElementById('imageEditor').style.display = 'none';
+  document.getElementById('genProductLinks').value = '';
+  document.getElementById('genLocationId').value = '';
+  document.getElementById('genScheduleAt').value = '';
+  document.getElementById('publishStatus').className = 'publish-status';
+  setGenStep(1);
+  document.getElementById('overlayGen').classList.add('show');
+}
+
+function openScheduleForEdit(item){
+  const acc = accounts.find(a => a.igId === item.igId) || null;
+  activeAccountId = acc ? acc.id : null;
+  editingScheduleId = item.id;
+  document.getElementById('genSub').textContent = 'para ' + (item.accountName || (acc ? acc.name : 'conta'));
+  document.getElementById('genFormat').value = item.format || (item.mediaType === 'STORIES' ? 'Story' : 'Legenda de post único');
+  document.getElementById('genTopic').value = '';
+  document.getElementById('genResult').style.display = 'none';
+  document.getElementById('genResult').dataset.generated = '';
+  document.getElementById('genManualText').value = item.caption || '';
+  document.getElementById('genImageUrl').value = item.imageUrl || '';
+  document.getElementById('uploadStatus').textContent = '';
+  document.getElementById('genImageFile').value = '';
+  uploadedImages = item.imageUrl ? [{ url: item.imageUrl }] : [];
+  imageTags = {};
+  if(item.imageUrl && Array.isArray(item.userTags) && item.userTags.length){
+    imageTags[item.imageUrl] = item.userTags;
+  }
+  document.getElementById('imageEditor').style.display = 'none';
+  document.getElementById('genProductLinks').value = '';
+  document.getElementById('genLocationId').value = item.locationId || '';
+  document.getElementById('genScheduleAt').value = toLocalDatetimeInputValue(item.scheduledFor);
+  document.getElementById('publishStatus').className = 'publish-status';
+  const hint = document.getElementById('editingScheduleHint');
+  hint.style.display = 'block';
+  hint.textContent = acc
+    ? 'Editando o agendamento de ' + (item.accountName || acc.name) + '. Mude o que quiser e clique em "Salvar alterações".'
+    : 'Não encontrei a conta "' + (item.accountName || '') + '" conectada neste navegador — reconecta ela antes de salvar, senão a edição não vai funcionar.';
+  setScheduleButtonLabel();
+  renderGallery();
+  renderTagsInfo();
+  setGenStep(1);
+  document.getElementById('overlayGen').classList.add('show');
+}
 
 function appendProductLinks(caption){
   const linksRaw = document.getElementById('genProductLinks').value.trim();
@@ -1093,9 +1197,11 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
   const locationId = document.getElementById('genLocationId').value.trim();
   const userTags = imageTags[imageUrl] || [];
 
-  if(!acc.igId || !acc.igToken){
+  if(!acc || !acc.igId || !acc.igToken){
     statusBox.className = 'publish-status err';
-    statusBox.textContent = 'Conecta o Instagram primeiro (link "Conectar Instagram" no card da conta).';
+    statusBox.textContent = editingScheduleId
+      ? 'Não encontrei essa conta conectada neste navegador. Reconecta a conta antes de salvar a edição.'
+      : 'Conecta o Instagram primeiro (link "Conectar Instagram" no card da conta).';
     return;
   }
   if(!imageUrl){
@@ -1116,18 +1222,20 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
 
   statusBox.className = 'publish-status';
   statusBox.style.display = 'block';
-  statusBox.innerHTML = '<span class="loading-dots">Agendando</span>';
+  statusBox.innerHTML = '<span class="loading-dots">' + (editingScheduleId ? 'Salvando' : 'Agendando') + '</span>';
 
   try{
     const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
+        id: editingScheduleId || undefined,
         igId: acc.igId,
         token: acc.igToken,
         imageUrl: imageUrl,
         caption: caption,
         mediaType: format === 'Story' ? 'STORIES' : 'IMAGE',
+        format: format,
         scheduledFor: new Date(scheduleAt).toISOString(),
         accountName: acc.name,
         userTags: userTags,
@@ -1138,7 +1246,10 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
     if(data.error){ throw new Error(data.error); }
 
     statusBox.className = 'publish-status ok';
-    statusBox.textContent = 'Agendado! Vai publicar em ' + new Date(scheduleAt).toLocaleString('pt-BR') + '.';
+    statusBox.textContent = editingScheduleId
+      ? 'Agendamento atualizado! Vai publicar em ' + new Date(scheduleAt).toLocaleString('pt-BR') + '.'
+      : 'Agendado! Vai publicar em ' + new Date(scheduleAt).toLocaleString('pt-BR') + '.';
+    exitEditMode();
     loadScheduled();
   }catch(e){
     statusBox.className = 'publish-status err';
@@ -1173,9 +1284,19 @@ function renderScheduled(items){
       <span class="mono" style="font-size:11px;color:var(--slate);">${when}</span>
       <span class="tag" style="background:var(--purple)">${escapeHtml(item.accountName || '')}</span>
       <span class="caption"><span class="format">${item.mediaType === 'STORIES' ? 'Story' : 'Post'}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
-      <button class="btn btn-ghost" data-cancel-id="${item.id}" style="padding:6px 12px;font-size:11.5px;">Cancelar</button>
+      <span style="display:flex;gap:6px;">
+        <button class="btn btn-ghost" data-edit-id="${item.id}" style="padding:6px 10px;font-size:11px;">Editar</button>
+        <button class="btn btn-ghost" data-cancel-id="${item.id}" style="padding:6px 10px;font-size:11px;">Cancelar</button>
+      </span>
       `;
     el.appendChild(div);
+  });
+  el.querySelectorAll('[data-edit-id]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = e.target.getAttribute('data-edit-id');
+      const item = pending.find(i => i.id === id);
+      if(item) openScheduleForEdit(item);
+    });
   });
   el.querySelectorAll('[data-cancel-id]').forEach(btn=>{
     btn.addEventListener('click', async (e)=>{
