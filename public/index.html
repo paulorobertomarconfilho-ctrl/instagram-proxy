@@ -166,36 +166,50 @@
   ::-webkit-scrollbar{height:8px;width:8px;}
   ::-webkit-scrollbar-thumb{background:#D8CDF5;border-radius:4px;}
 
-  .cal-scroll{display:flex;gap:14px;padding:14px 32px 40px;overflow-x:auto;}
-  .cal-day{
-    flex:0 0 220px;background:var(--paper);border:1px solid var(--line);border-radius:14px;
-    padding:14px;box-shadow:0 2px 10px rgba(124,58,237,0.06);
+  .cal-scroll{display:flex;flex-direction:column;gap:26px;padding:16px 32px 44px;}
+  .cal-day{ background:none; }
+  .cal-day .cal-date{
+    font-family:'Poppins',sans-serif;font-weight:800;font-size:18px;color:var(--ink);
+    margin-bottom:14px;display:flex;align-items:center;gap:10px;
   }
-  .cal-day .cal-date{font-family:'Poppins',sans-serif;font-weight:700;font-size:13px;color:var(--purple-dark);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
-  .cal-day .cal-date .badge{background:var(--paper-2);border-radius:999px;padding:2px 8px;font-size:10px;color:var(--slate);font-weight:600;}
+  .cal-day .cal-date::before{content:'';width:5px;height:20px;border-radius:3px;background:linear-gradient(180deg,var(--purple),var(--red));display:inline-block;}
+  .cal-day .cal-date .badge{
+    background:linear-gradient(120deg,var(--purple),#C026D3);color:#fff;border-radius:999px;
+    padding:3px 12px;font-size:11px;font-weight:700;
+  }
+  .cal-day-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
   .cal-card{
-    background:var(--paper-2);border-radius:10px;padding:10px 12px;margin-bottom:8px;
+    background:var(--paper);border-radius:16px;padding:18px 20px;
+    box-shadow:0 4px 16px rgba(124,58,237,0.08);
+    border-left:5px solid var(--purple);
+    display:flex;flex-direction:column;
   }
-  .cal-card:last-child{margin-bottom:0;}
   .cal-card .cal-tag{
-    display:inline-block;font-size:10px;font-weight:700;color:#fff;border-radius:999px;
-    padding:2px 8px;margin-bottom:6px;
+    display:inline-block;font-size:11px;font-weight:700;color:#fff;border-radius:999px;
+    padding:3px 10px;
   }
-  .cal-card .cal-format{font-size:10.5px;color:var(--slate);margin-bottom:3px;}
-  .cal-card .cal-text{font-size:12px;line-height:1.4;color:var(--ink);white-space:pre-wrap;max-height:110px;overflow:hidden;}
+  .cal-card .cal-format{
+    font-size:12px;color:var(--purple-dark);margin:10px 0 6px;font-weight:700;
+    display:flex;align-items:center;gap:6px;
+  }
+  .cal-card .cal-format .topic{color:var(--ink-soft);font-weight:500;}
+  .cal-card .cal-text{
+    font-size:13.5px;line-height:1.55;color:var(--ink);white-space:pre-wrap;
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;
+  }
   .cal-card{transition:box-shadow .12s ease, transform .12s ease;}
-  .cal-card:hover{box-shadow:0 4px 14px rgba(124,58,237,0.18);transform:translateY(-2px);}
-  .cal-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
-  .cal-time{font-size:10px;color:var(--slate);font-weight:600;white-space:nowrap;}
-  .metrics-block{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);}
-  .metrics-row{display:flex;flex-wrap:wrap;gap:5px;}
+  .cal-card:hover{box-shadow:0 10px 26px rgba(124,58,237,0.20);transform:translateY(-3px);}
+  .cal-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .cal-time{font-size:11px;color:var(--slate);font-weight:700;white-space:nowrap;}
+  .metrics-block{margin-top:14px;padding-top:12px;border-top:1.5px dashed var(--line);}
+  .metrics-row{display:flex;flex-wrap:wrap;gap:6px;}
   .metric-chip{
-    display:inline-flex;align-items:center;gap:3px;
-    background:var(--paper);border:1px solid var(--line);border-radius:999px;
-    padding:3px 8px;font-size:10px;color:var(--ink-soft);font-weight:600;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:4px;
+    background:var(--paper-2);border:1px solid var(--line);border-radius:999px;
+    padding:5px 10px;font-size:11px;color:var(--ink-soft);font-weight:600;white-space:nowrap;
   }
-  .metric-chip .val{color:var(--purple-dark);font-weight:700;}
-  .metrics-loading{font-size:10.5px;color:var(--slate);}
+  .metric-chip .val{color:var(--purple-dark);font-weight:800;}
+  .metrics-loading{font-size:11px;color:var(--slate);}
   .editing-hint{display:none;background:#EFE9FC;color:var(--purple-dark);border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;}
 
   /* Painel "Gerar conteúdo" em tela cheia, com abas por etapa */
@@ -241,8 +255,9 @@
     .lanes{ padding:16px; gap:12px; }
     .lane{ flex:0 0 78vw; }
     .add-lane{ flex:0 0 60vw; min-height:180px; }
-    .cal-scroll{ padding:12px 16px 28px; }
-    .cal-day{ flex:0 0 82vw; }
+    .cal-scroll{ padding:12px 16px 28px; gap:20px; }
+    .cal-day-grid{ grid-template-columns:1fr; }
+    .cal-card{ padding:14px 16px; }
     .log{ padding:12px 16px 28px; }
     .log-entry{ grid-template-columns:1fr; gap:6px; padding:12px; }
     .log-entry .mono{ font-size:10.5px; }
@@ -673,6 +688,7 @@ function renderLog(){
     dayDiv.className = 'cal-day';
     dayDiv.innerHTML = `
       <div class="cal-date">${date} <span class="badge">${dayEntries.length} post${dayEntries.length>1?'s':''}</span></div>
+      <div class="cal-day-grid">
       ${dayEntries.map(entry => {
         flatEntries.push(entry);
         const metricsHtml = entry.mediaId ? `
@@ -681,17 +697,18 @@ function renderLog(){
           </div>
         ` : '';
         return `
-        <div class="cal-card" title="Clique pra reabrir e reusar este post">
+        <div class="cal-card" style="border-left-color:${entry.color}" title="Clique pra reabrir e reusar este post">
           <div class="cal-card-top">
             <span class="cal-tag" style="background:${entry.color}">${escapeHtml(entry.accountName)}</span>
-            ${entry.time ? `<span class="cal-time">${escapeHtml(entry.time)}</span>` : ''}
+            ${entry.time ? `<span class="cal-time">🕒 ${escapeHtml(entry.time)}</span>` : ''}
           </div>
-          <div class="cal-format">${escapeHtml(entry.format)} · ${escapeHtml(entry.topic)}</div>
-          <div class="cal-text">${escapeHtml(entry.content)}</div>
+          <div class="cal-format">${formatIcon(entry.format)} ${escapeHtml(entry.format)}${entry.topic ? ' <span class="topic">· ' + escapeHtml(entry.topic) + '</span>' : ''}</div>
+          <div class="cal-text">${escapeHtml(entry.content) || '<span style="color:var(--slate);font-style:italic;">Sem legenda ainda</span>'}</div>
           ${metricsHtml}
         </div>
       `;
       }).join('')}
+      </div>
     `;
     el.appendChild(dayDiv);
   });
@@ -1306,6 +1323,14 @@ document.getElementById('genImageFile').addEventListener('change', async (e)=>{
   }
   statusEl.textContent = uploadedImages.length + ' imagem' + (uploadedImages.length>1?'s':'') + ' pronta' + (uploadedImages.length>1?'s':'') + '. Clique numa miniatura pra escolher.';
 });
+
+function formatIcon(format){
+  if(!format) return '📝';
+  if(format.startsWith('Reel')) return '🎬';
+  if(format.startsWith('Carrossel')) return '🖼️';
+  if(format === 'Story') return '⚡';
+  return '📝';
+}
 
 function mediaTypeLabel(mt){
   if(mt === 'STORIES') return 'Story';
