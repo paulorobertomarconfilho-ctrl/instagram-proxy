@@ -4,6 +4,7 @@
   "description": "Servidor intermediário para publicar no Instagram via Graph API, contornando bloqueio de CORS do navegador.",
   "private": true,
   "dependencies": {
-    "@vercel/blob": "^2.6.1"
+    "@vercel/blob": "^2.6.1",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0"
   }
 }

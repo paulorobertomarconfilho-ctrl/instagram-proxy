@@ -8,6 +8,10 @@
   "functions": {
     "api/upload-video.js": {
       "includeFiles": "node_modules/@vercel/blob/**"
+    },
+    "api/watermark-video.js": {
+      "includeFiles": "node_modules/@ffmpeg-installer/**",
+      "maxDuration": 60
     }
   }
 }
