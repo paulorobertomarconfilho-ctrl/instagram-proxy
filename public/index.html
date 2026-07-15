@@ -1357,6 +1357,7 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        accountId: acc.id,
         accountName: acc.name,
         niche: acc.niche,
         tone: acc.tone,
