@@ -323,12 +323,20 @@
     .overlay{ padding:10px; }
     .modal-actions{ flex-wrap:wrap; }
     .modal-actions .btn{ flex:1 1 auto; }
-    #overlayGen .modal{ padding:18px 16px 24px; max-height:100vh; display:flex; flex-direction:column; }
+    /* Layout mobile do "Gerar conteúdo": modal ocupa 100vh e NÃO rola mais
+       inteiro — só o conteúdo de cada etapa (.step-content) rola, enquanto
+       os botões de navegação (.step-nav) ficam sempre grudados embaixo,
+       fora da área de rolagem. Isso evita depender de margin-top:auto
+       dentro de um container com overflow, que é frágil em alguns navegadores
+       mobile (o conteúdo curto ficava "flutuando" no topo com vão em branco
+       embaixo em vez de empurrar os botões pro rodapé). */
+    #overlayGen .modal{ padding:18px 16px 24px; height:100vh; max-height:100vh; overflow:hidden; display:flex; flex-direction:column; }
     .gen-header{ flex-shrink:0; }
-    .gen-body{ flex:1; display:flex; flex-direction:column; min-height:0; }
-    .step-panel{ flex:1; min-height:0; }
+    .gen-body{ flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+    .step-panel{ flex:1; min-height:0; overflow:hidden; }
     .step-panel.active{ display:flex; flex-direction:column; }
-    .step-nav{ margin-top:auto; padding-top:22px; flex-shrink:0; }
+    .step-content{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .step-nav{ margin-top:0; padding-top:22px; flex-shrink:0; }
     .step-tab{ font-size:11px; padding:8px 4px 10px; }
 
     /* Evita o zoom automático do iOS ao tocar em campos com fonte menor que 16px */
@@ -448,6 +456,7 @@
     <div class="gen-body">
       <!-- Etapa 1: texto -->
       <div class="step-panel active" data-step-panel="1">
+       <div class="step-content">
         <div class="field">
           <label>Formato</label>
           <select id="genFormat">
@@ -484,6 +493,7 @@
             <div><strong>Story</strong> — some do feed em 24h (ou fica fixado nos destaques). <span style="color:var(--sage);">A favor:</span> ótimo pra urgência ("só hoje", "últimas unidades"), permite enquete/caixinha de pergunta, não exige tanta produção. <span style="color:var(--red);">Contra:</span> alcança só quem já te segue e some rápido — não ajuda a atrair gente nova.</div>
           </div>
         </details>
+       </div>
 
         <div class="step-nav">
           <span></span>
@@ -493,6 +503,7 @@
 
       <!-- Etapa 2: imagem -->
       <div class="step-panel" data-step-panel="2">
+       <div class="step-content">
         <div class="field" id="genImageRow">
           <label>Fotos e vídeos do post</label>
           <div id="genFormatBadge" style="display:inline-flex;align-items:center;gap:5px;background:var(--paper-2);border:1.5px solid var(--line);border-radius:999px;padding:4px 12px;font-size:11.5px;font-weight:700;color:var(--purple-dark);margin-bottom:12px;"></div>
@@ -537,6 +548,7 @@
             <button class="btn btn-ghost" type="button" id="editCancelBtn">Cancelar</button>
           </div>
         </div>
+       </div>
 
         <div class="step-nav">
           <button class="btn btn-ghost" type="button" data-goto-step="1">← Conteúdo</button>
@@ -546,6 +558,7 @@
 
       <!-- Etapa 3: publicar -->
       <div class="step-panel" data-step-panel="3">
+       <div class="step-content">
         <div class="field" id="igPreviewWrap">
           <label>Prévia de como vai ficar</label>
           <div class="ig-preview" id="igPreview">
@@ -574,6 +587,8 @@
           <button class="btn btn-gold" id="genPublishBtn">Publicar no Instagram</button>
         </div>
         <div class="publish-status" id="publishStatus"></div>
+       </div>
+
         <div class="step-nav">
           <button class="btn btn-ghost" type="button" data-goto-step="2">← Imagem</button>
           <span></span>
@@ -2139,7 +2154,15 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
     exitEditMode();
     loadScheduled();
     if(!wasEditing){
-      setTimeout(()=> resetGenFormForNewPost(), 2200);
+      setTimeout(()=>{
+        const again = confirm('Agendado! Quer criar mais um agendamento agora?');
+        if(again){
+          resetGenFormForNewPost();
+        }else{
+          closeOverlay('overlayGen');
+          resetGenFormForNewPost();
+        }
+      }, 900);
     }
   }catch(e){
     statusBox.className = 'publish-status err';
