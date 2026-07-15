@@ -637,14 +637,45 @@ const storageLayer = {
   }
 };
 
+const LOG_API = 'https://instagram-proxy-neon.vercel.app/api/log';
+
+async function fetchServerLog(){
+  const res = await fetch(LOG_API);
+  const data = await res.json();
+  return data.items || [];
+}
+
 async function loadData(){
   try{
     const acc = await storageLayer.get('accounts');
     accounts = acc ? JSON.parse(acc) : [];
   }catch(e){ accounts = []; }
   try{
-    const log = await storageLayer.get('log-entries');
-    logEntries = log ? JSON.parse(log) : [];
+    // O registro de posts agora mora no servidor (Vercel Blob), pra aparecer
+    // igual em qualquer navegador/celular, em vez de ficar preso ao
+    // localStorage de cada aparelho.
+    let serverEntries = await fetchServerLog();
+    // Migração única: se esse navegador tinha posts salvos só localmente
+    // (versão antiga, antes do registro virar compartilhado), junta eles
+    // no servidor também, sem perder nada.
+    try{
+      const oldLocal = hasClaudeStorage ? null : localStorage.getItem('log-entries');
+      if(oldLocal){
+        const oldEntries = JSON.parse(oldLocal);
+        const serverIds = new Set(serverEntries.filter(e => e.id).map(e => e.id));
+        const onlyLocal = oldEntries.filter(e => e.id && !serverIds.has(e.id));
+        if(onlyLocal.length){
+          serverEntries = serverEntries.concat(onlyLocal);
+          await fetch(LOG_API, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ items: serverEntries })
+          });
+        }
+        localStorage.removeItem('log-entries');
+      }
+    }catch(e){ /* ignora falha na migração, não é crítico */ }
+    logEntries = serverEntries;
   }catch(e){ logEntries = []; }
   if(accounts.length === 0){
     accounts = [{
@@ -662,16 +693,20 @@ async function persistAccounts(){
 }
 async function persistLog(){
   try{
-    // Evita perder posts salvos por outra aba/janela aberta ao mesmo tempo:
-    // antes de gravar, junta com o que já está salvo (por id) em vez de sobrescrever tudo.
-    const stored = await storageLayer.get('log-entries');
-    const storedEntries = stored ? JSON.parse(stored) : [];
+    // Evita perder posts salvos por outra aba/janela/aparelho aberto ao
+    // mesmo tempo: antes de gravar, junta com o que já está salvo no
+    // servidor (por id) em vez de sobrescrever tudo.
+    const storedEntries = await fetchServerLog();
     const localIds = new Set(logEntries.filter(e => e.id).map(e => e.id));
     const missing = storedEntries.filter(e => e.id && !localIds.has(e.id));
     if(missing.length){
       logEntries = logEntries.concat(missing);
     }
-    await storageLayer.set('log-entries', JSON.stringify(logEntries));
+    await fetch(LOG_API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ items: logEntries })
+    });
   }catch(e){ console.error('Falha ao salvar registro', e); }
 }
 
