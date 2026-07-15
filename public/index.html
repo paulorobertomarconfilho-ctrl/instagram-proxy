@@ -684,28 +684,32 @@ function renderIgPreview(){
   mediaEl.style.aspectRatio = target.w + ' / ' + target.h;
 
   const carousel = isCarouselFormat();
-  const badge = format === 'Story' ? 'Story' : (format.startsWith('Reel') ? 'Reel' : (carousel ? 'Carrossel · ' + carouselSelection.length : 'Post'));
+  const storyMode = format === 'Story';
+  const slideItems = carousel ? carouselSelection : (storyMode ? storySequence : null);
+  const badge = storyMode
+    ? (storySequence.length > 1 ? 'Story · ' + storySequence.length + ' em sequência' : 'Story')
+    : (format.startsWith('Reel') ? 'Reel' : (carousel ? 'Carrossel · ' + carouselSelection.length : 'Post'));
 
   mediaEl.innerHTML = '';
 
-  if(carousel && carouselSelection.length > 0){
+  if(slideItems && slideItems.length > 0){
     const slidesWrap = document.createElement('div');
     slidesWrap.className = 'ig-preview-slides';
-    carouselSelection.forEach((item, i) => {
+    slideItems.forEach((item, i) => {
       const slide = document.createElement('div');
       slide.className = 'ig-preview-slide';
       slide.innerHTML = (item.type === 'video'
         ? '<video src="' + item.url + '" muted loop autoplay playsinline></video>'
         : '<img src="' + item.url + '">')
-        + '<span class="ig-preview-slide-num">' + (i+1) + '/' + carouselSelection.length + '</span>';
+        + (slideItems.length > 1 ? '<span class="ig-preview-slide-num">' + (storyMode ? 'Story ' : '') + (i+1) + '/' + slideItems.length + '</span>' : '');
       slidesWrap.appendChild(slide);
     });
     mediaEl.appendChild(slidesWrap);
 
-    if(carouselSelection.length > 1){
+    if(slideItems.length > 1){
       const dots = document.createElement('div');
       dots.className = 'ig-preview-dots';
-      carouselSelection.forEach((_, i) => {
+      slideItems.forEach((_, i) => {
         const dot = document.createElement('span');
         dot.className = 'ig-preview-dot' + (i === 0 ? ' active' : '');
         dots.appendChild(dot);
@@ -713,7 +717,7 @@ function renderIgPreview(){
       mediaEl.appendChild(dots);
 
       const goTo = (idx) => {
-        idx = Math.max(0, Math.min(carouselSelection.length - 1, idx));
+        idx = Math.max(0, Math.min(slideItems.length - 1, idx));
         slidesWrap.scrollTo({ left: idx * slidesWrap.clientWidth, behavior: 'smooth' });
       };
       const prevBtn = document.createElement('button');
@@ -1183,9 +1187,27 @@ let uploadedVideos = []; // [{ url, name }, ...]
 let imageTags = {}; // { [url]: [{username,x,y}, ...] }
 let editingScheduleId = null;
 let carouselSelection = []; // [{type,url}, ...] em ordem, só usado no formato Carrossel
+let storySequence = []; // [{type,url}, ...] em ordem, só usado no formato Story (várias stories em sequência)
+const STORY_SEQUENCE_MAX = 30;
 
 function isCarouselFormat(){
   return document.getElementById('genFormat').value.startsWith('Carrossel');
+}
+
+function isStoryFormat(){
+  return document.getElementById('genFormat').value === 'Story';
+}
+
+function isMultiMediaFormat(){
+  return isCarouselFormat() || isStoryFormat();
+}
+
+function activeMultiSelection(){
+  return isCarouselFormat() ? carouselSelection : storySequence;
+}
+
+function multiIndexOf(url){
+  return activeMultiSelection().findIndex(i => i.url === url);
 }
 
 function selectSingleMedia(item){
@@ -1214,6 +1236,7 @@ function clearMediaState(){
   uploadedVideos = [];
   imageTags = {};
   carouselSelection = [];
+  storySequence = [];
   document.getElementById('genImageUrl').value = '';
   document.getElementById('genVideoUrl').value = '';
   document.getElementById('uploadStatus').textContent = '';
@@ -1285,10 +1308,16 @@ function openScheduleForEdit(item){
       if(Array.isArray(item.userTags) && item.userTags.length){
         imageTags[item.imageUrl] = item.userTags;
       }
+      if(document.getElementById('genFormat').value === 'Story'){
+        storySequence = [{ type: 'image', url: item.imageUrl }];
+      }
     }
     if(item.videoUrl){
       uploadedVideos.push({ url: item.videoUrl, name: 'vídeo salvo' });
       document.getElementById('genVideoUrl').value = item.videoUrl;
+      if(document.getElementById('genFormat').value === 'Story'){
+        storySequence = [{ type: 'video', url: item.videoUrl }];
+      }
     }
   }
   document.getElementById('genProductLinks').value = '';
@@ -1343,11 +1372,14 @@ function renderGallery(){
   const currentImgUrl = document.getElementById('genImageUrl').value.trim();
   const currentVidUrl = document.getElementById('genVideoUrl').value.trim();
 
+  const multi = isMultiMediaFormat();
+  const storyMode = isStoryFormat();
+
   items.forEach((item) => {
     const wrap = document.createElement('div');
     wrap.className = 'thumb-wrap';
-    const csIdx = carouselIndexOf(item.url);
-    const selected = carousel
+    const csIdx = multiIndexOf(item.url);
+    const selected = multi
       ? csIdx > -1
       : (item.type === 'image' ? item.url === currentImgUrl : item.url === currentVidUrl);
     const thumb = document.createElement('div');
@@ -1357,23 +1389,25 @@ function renderGallery(){
     } else {
       thumb.innerHTML = '<img src="' + item.url + '" style="width:100%;height:100%;object-fit:cover;display:block;">';
     }
-    if(carousel && csIdx > -1){
+    if(multi && csIdx > -1){
       const badge = document.createElement('span');
       badge.textContent = String(csIdx + 1);
       badge.style.cssText = 'position:absolute;top:2px;right:2px;background:var(--purple);color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;';
       thumb.appendChild(badge);
     }
     thumb.addEventListener('click', () => {
-      if(carousel){
-        const idx = carouselIndexOf(item.url);
+      if(multi){
+        const arr = activeMultiSelection();
+        const idx = multiIndexOf(item.url);
         if(idx > -1){
-          carouselSelection.splice(idx, 1);
+          arr.splice(idx, 1);
         } else {
-          if(carouselSelection.length >= 10){
-            alert('Carrossel aceita no máximo 10 itens.');
+          const max = isCarouselFormat() ? 10 : STORY_SEQUENCE_MAX;
+          if(arr.length >= max){
+            alert(isCarouselFormat() ? 'Carrossel aceita no máximo 10 itens.' : 'Sequência de Stories aceita no máximo ' + STORY_SEQUENCE_MAX + ' itens.');
             return;
           }
-          carouselSelection.push({ type: item.type, url: item.url });
+          arr.push({ type: item.type, url: item.url });
         }
       } else {
         selectSingleMedia(item);
@@ -1401,8 +1435,10 @@ function renderGallery(){
         uploadedVideos = uploadedVideos.filter(v => v.url !== item.url);
         if(document.getElementById('genVideoUrl').value.trim() === item.url) document.getElementById('genVideoUrl').value = '';
       }
-      const csi = carouselIndexOf(item.url);
-      if(csi > -1) carouselSelection.splice(csi, 1);
+      const ci = carouselSelection.findIndex(i => i.url === item.url);
+      if(ci > -1) carouselSelection.splice(ci, 1);
+      const si = storySequence.findIndex(i => i.url === item.url);
+      if(si > -1) storySequence.splice(si, 1);
       renderGallery();
       renderTagsInfo();
       renderIgPreview();
@@ -1434,6 +1470,14 @@ function renderGallery(){
     hint.textContent = carouselSelection.length < 2
       ? 'Selecione pelo menos 2 itens pra formar o carrossel (' + carouselSelection.length + ' selecionado' + (carouselSelection.length === 1 ? '' : 's') + ').'
       : carouselSelection.length + ' itens selecionados, nessa ordem.';
+  } else if(storyMode){
+    if(storySequence.length > 1){
+      hint.style.display = 'block';
+      hint.style.color = 'var(--purple-dark)';
+      hint.textContent = storySequence.length + ' stories selecionados — vão ser publicados em sequência, um atrás do outro, nessa ordem. Clique numa miniatura pra tirar ou trocar a ordem.';
+    } else {
+      hint.style.display = 'none';
+    }
   } else if(items.length > 1){
     hint.style.display = 'block';
     hint.style.color = '#B45309';
@@ -1635,9 +1679,11 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
           handleUploadUrl: 'https://instagram-proxy-neon.vercel.app/api/upload-video'
         });
         uploadedVideos.push({ url: blob.url, name: file.name });
-        if(isCarouselFormat()){
-          if(carouselSelection.length < 10 && carouselIndexOf(blob.url) === -1){
-            carouselSelection.push({ type: 'video', url: blob.url });
+        if(isMultiMediaFormat()){
+          const arr = activeMultiSelection();
+          const max = isCarouselFormat() ? 10 : STORY_SEQUENCE_MAX;
+          if(arr.length < max && multiIndexOf(blob.url) === -1){
+            arr.push({ type: 'video', url: blob.url });
           }
           renderIgPreview();
         } else if(!document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
@@ -1672,9 +1718,11 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
           continue;
         }
         uploadedImages.push({ url: data.url });
-        if(isCarouselFormat()){
-          if(carouselSelection.length < 10 && carouselIndexOf(data.url) === -1){
-            carouselSelection.push({ type: 'image', url: data.url });
+        if(isMultiMediaFormat()){
+          const arr = activeMultiSelection();
+          const max = isCarouselFormat() ? 10 : STORY_SEQUENCE_MAX;
+          if(arr.length < max && multiIndexOf(data.url) === -1){
+            arr.push({ type: 'image', url: data.url });
           }
           renderIgPreview();
         } else if(!document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
@@ -1688,7 +1736,16 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
     }
   }
   const total = uploadedImages.length + uploadedVideos.length;
-  const doneMsg = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. ' + (isCarouselFormat() ? 'Todos entraram no carrossel — clique numa miniatura pra tirar ou trocar a ordem.' : 'Clique numa miniatura pra escolher.');
+  let doneMsg;
+  if(isCarouselFormat()){
+    doneMsg = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. Todos entraram no carrossel — clique numa miniatura pra tirar ou trocar a ordem.';
+  } else if(isStoryFormat()){
+    doneMsg = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + (storySequence.length > 1
+      ? '. Vão sair em sequência, uma story de cada vez, nessa ordem — clique numa miniatura pra tirar ou trocar a ordem.'
+      : '. Clique em mais miniaturas pra adicionar à sequência, se quiser postar várias seguidas.');
+  } else {
+    doneMsg = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. Clique numa miniatura pra escolher.';
+  }
   statusEl.innerHTML = total > 0 ? successHtml(doneMsg) : doneMsg;
 });
 
@@ -1722,12 +1779,89 @@ function getMediaPayload(){
     }
     return { mediaType: 'CAROUSEL', carouselItems: carouselSelection.slice(), imageUrl: '', videoUrl: '' };
   }
+  if(format === 'Story'){
+    if(storySequence.length === 0){
+      return { error: 'Envia uma foto ou vídeo na etapa "2. Imagem" antes de continuar.' };
+    }
+    if(storySequence.length === 1){
+      const only = storySequence[0];
+      return {
+        mediaType: 'STORIES',
+        imageUrl: only.type === 'image' ? only.url : '',
+        videoUrl: only.type === 'video' ? only.url : '',
+        carouselItems: [],
+        storyItems: []
+      };
+    }
+    return { mediaType: 'STORY_SEQUENCE', storyItems: storySequence.slice(), imageUrl: '', videoUrl: '', carouselItems: [] };
+  }
   const imageUrl = document.getElementById('genImageUrl').value.trim();
   const videoUrl = document.getElementById('genVideoUrl').value.trim();
   if(!imageUrl && !videoUrl){
     return { error: 'Envia uma foto ou vídeo na etapa "2. Imagem" antes de continuar.' };
   }
   return { mediaType: computeMediaType(format, !!videoUrl), imageUrl, videoUrl, carouselItems: [] };
+}
+
+async function publishStorySequence(acc, items, caption, statusBox){
+  statusBox.className = 'publish-status';
+  statusBox.style.display = 'block';
+  let successCount = 0;
+
+  for(let i = 0; i < items.length; i++){
+    const item = items[i];
+    statusBox.innerHTML = spinnerHtml('Publicando story ' + (i+1) + ' de ' + items.length + '...');
+    const userTags = item.type === 'image' ? (imageTags[item.url] || []) : [];
+    try{
+      const proxyRes = await fetch('https://instagram-proxy-neon.vercel.app/api/publish', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          igId: acc.igId,
+          token: acc.igToken,
+          imageUrl: item.type === 'image' ? item.url : '',
+          videoUrl: item.type === 'video' ? item.url : '',
+          carouselItems: [],
+          caption: caption,
+          mediaType: 'STORIES',
+          userTags: userTags
+        })
+      });
+      const data = await proxyRes.json();
+      if(data.error) throw new Error(data.error);
+      successCount++;
+      if(data.post_id){
+        const topic = document.getElementById('genTopic').value.trim();
+        logEntries.push({
+          id: 'log-' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '-' + i,
+          date: new Date().toLocaleDateString('pt-BR'),
+          time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+          accountName: acc.name,
+          color: colorFor(acc.id),
+          format: 'Story', topic, content: caption,
+          mediaId: data.post_id,
+          igId: acc.igId,
+          mediaType: 'STORIES'
+        });
+      }
+    }catch(e){
+      await persistLog();
+      renderLog();
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Publiquei ' + successCount + ' de ' + items.length + ' stories, mas o story ' + (i+1) + ' falhou: ' + e.message + '. As próximas foram canceladas.';
+      console.error(e);
+      return;
+    }
+    if(i < items.length - 1){
+      await new Promise(r => setTimeout(r, 1800));
+    }
+  }
+
+  await persistLog();
+  renderLog();
+  statusBox.className = 'publish-status ok';
+  statusBox.innerHTML = successHtml(items.length + ' stories publicados em sequência com sucesso!');
+  setTimeout(()=> resetGenFormForNewPost(), 1800);
 }
 
 document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
@@ -1749,6 +1883,12 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
     statusBox.textContent = media.error;
     return;
   }
+
+  if(media.mediaType === 'STORY_SEQUENCE'){
+    await publishStorySequence(acc, media.storyItems, caption, statusBox);
+    return;
+  }
+
   const { mediaType, imageUrl, videoUrl, carouselItems } = media;
   const userTags = imageUrl ? (imageTags[imageUrl] || []) : [];
 
@@ -1815,6 +1955,53 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
   renderLog();
 });
 
+async function scheduleStorySequence(acc, items, caption, scheduleAt, statusBox){
+  statusBox.className = 'publish-status';
+  statusBox.style.display = 'block';
+  const baseTime = new Date(scheduleAt).getTime();
+  let scheduledCount = 0;
+
+  for(let i = 0; i < items.length; i++){
+    const item = items[i];
+    statusBox.innerHTML = spinnerHtml('Agendando story ' + (i+1) + ' de ' + items.length + '...');
+    const userTags = item.type === 'image' ? (imageTags[item.url] || []) : [];
+    const scheduledFor = new Date(baseTime + i * 2 * 60000).toISOString();
+    try{
+      const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          igId: acc.igId,
+          token: acc.igToken,
+          imageUrl: item.type === 'image' ? item.url : '',
+          videoUrl: item.type === 'video' ? item.url : '',
+          carouselItems: [],
+          caption: caption,
+          mediaType: 'STORIES',
+          format: 'Story',
+          scheduledFor: scheduledFor,
+          accountName: acc.name,
+          userTags: userTags
+        })
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error);
+      scheduledCount++;
+    }catch(e){
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Agendei ' + scheduledCount + ' de ' + items.length + ' stories, mas o story ' + (i+1) + ' falhou: ' + e.message + '. As próximas foram canceladas.';
+      console.error(e);
+      loadScheduled();
+      return;
+    }
+  }
+
+  statusBox.className = 'publish-status ok';
+  statusBox.innerHTML = successHtml(items.length + ' stories agendados em sequência, a partir de ' + new Date(baseTime).toLocaleString('pt-BR') + ' (2 min de intervalo entre eles).');
+  loadScheduled();
+  setTimeout(()=> resetGenFormForNewPost(), 2200);
+}
+
 document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
   const acc = accounts.find(a=>a.id===activeAccountId);
   const statusBox = document.getElementById('publishStatus');
@@ -1837,8 +2024,6 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
     statusBox.textContent = media.error;
     return;
   }
-  const { mediaType, imageUrl, videoUrl, carouselItems } = media;
-  const userTags = imageUrl ? (imageTags[imageUrl] || []) : [];
 
   if(!scheduleAt){
     statusBox.className = 'publish-status err';
@@ -1850,6 +2035,19 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
     statusBox.textContent = 'Escolhe um horario no futuro.';
     return;
   }
+
+  if(media.mediaType === 'STORY_SEQUENCE'){
+    if(editingScheduleId){
+      statusBox.className = 'publish-status err';
+      statusBox.textContent = 'Edição de sequência de Stories ainda não é suportada. Apague os agendamentos e crie de novo.';
+      return;
+    }
+    await scheduleStorySequence(acc, media.storyItems, caption, scheduleAt, statusBox);
+    return;
+  }
+
+  const { mediaType, imageUrl, videoUrl, carouselItems } = media;
+  const userTags = imageUrl ? (imageTags[imageUrl] || []) : [];
 
   statusBox.className = 'publish-status';
   statusBox.style.display = 'block';
