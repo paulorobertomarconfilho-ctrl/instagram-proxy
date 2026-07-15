@@ -378,14 +378,11 @@
 <div class="section-label">Contas em teste</div>
 <div class="lanes" id="lanes"></div>
 
-<div class="section-label" style="margin-top:20px;">Conteúdo gerado, por dia</div>
-<div class="cal-scroll" id="log"></div>
-
   <div class="section-label" style="margin-top:20px;">Agendados</div>
   <div class="log" id="scheduledList"></div>
 
-  <div class="section-label" style="margin-top:20px;">Publicados (com métricas)</div>
-  <div class="log" id="publishedList"></div>
+<div class="section-label" style="margin-top:20px;">Conteúdo gerado, por dia</div>
+<div class="cal-scroll" id="log"></div>
 
 <!-- Modal: nova conta -->
 <div class="overlay" id="overlayAccount">
@@ -2175,42 +2172,46 @@ async function loadScheduled(){
   try{
     const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule');
     const data = await res.json();
-    renderScheduled(data.items || []);
-    renderPublished(data.items || []);
+    const items = data.items || [];
+    renderScheduled(items);
+    mergePublishedScheduleIntoLog(items);
   }catch(e){
     console.error('Falha ao carregar agendamentos', e);
   }
 }
 
-function renderPublished(items){
-  const el = document.getElementById('publishedList');
-  const published = items.filter(i => i.status === 'published').slice().reverse();
-  if(published.length === 0){
-    el.innerHTML = '<div class="log-empty">Nada publicado pelo agendamento ainda.</div>';
-    return;
-  }
-  el.innerHTML = '';
+// Um post agendado, depois de realmente publicado pelo cron, entra aqui e
+// passa a aparecer junto com os demais posts em "Conteúdo gerado, por dia"
+// (mesma lista, com métricas), em vez de ficar numa área separada só pra
+// quem foi publicado via agendamento.
+function mergePublishedScheduleIntoLog(items){
+  const published = items.filter(i => i.status === 'published' && i.postId);
+  const existingMediaIds = new Set(logEntries.filter(e => e.mediaId).map(e => e.mediaId));
+  let changed = false;
   published.forEach(item => {
-    const when = new Date(item.publishedAt || item.scheduledFor).toLocaleString('pt-BR');
-    const div = document.createElement('div');
-    div.className = 'log-entry';
-    const metricsHtml = item.postId ? `
-      <div class="metrics-result metrics-auto" data-metrics-media="${item.postId}" data-metrics-igid="${item.igId||''}" data-metrics-type="${item.mediaType||''}"><span class="metrics-loading">Carregando métricas...</span></div>
-    ` : '';
-    div.innerHTML = `
-      <span class="mono" style="font-size:11px;color:var(--slate);">${when}</span>
-      <span class="tag" style="background:var(--sage)">${escapeHtml(item.accountName || '')}</span>
-      <span class="caption"><span class="format">${mediaTypeLabel(item.mediaType)}</span><br>${escapeHtml((item.caption||'').slice(0,120))}</span>
-      <span>${metricsHtml}</span>
-      `;
-    el.appendChild(div);
+    if(existingMediaIds.has(item.postId)) return;
+    const acc = accounts.find(a => a.name === item.accountName);
+    const when = new Date(item.publishedAt || item.scheduledFor);
+    logEntries.push({
+      id: 'sched-log-' + item.postId,
+      date: when.toLocaleDateString('pt-BR'),
+      time: when.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+      accountName: item.accountName || '',
+      color: acc ? colorFor(acc.id) : '#7C3AED',
+      format: item.format || mediaTypeLabel(item.mediaType),
+      topic: '',
+      content: item.caption || '',
+      mediaId: item.postId,
+      igId: item.igId,
+      mediaType: item.mediaType
+    });
+    existingMediaIds.add(item.postId);
+    changed = true;
   });
-  el.querySelectorAll('.metrics-auto').forEach(container=>{
-    const mediaId = container.getAttribute('data-metrics-media');
-    const igId = container.getAttribute('data-metrics-igid');
-    const mediaType = container.getAttribute('data-metrics-type');
-    fetchAndShowMetrics(mediaId, igId, mediaType, container);
-  });
+  if(changed){
+    persistLog();
+    renderLog();
+  }
 }
 
 function renderScheduled(items){
