@@ -407,6 +407,17 @@
         <option>Formal e institucional</option>
       </select>
     </div>
+    <div class="field">
+      <label>Logotipo da conta (opcional)</label>
+      <div class="sub" style="margin:-2px 0 8px;">Se enviar um logotipo, ele entra automaticamente no rodapé de toda foto e vídeo que você postar com essa conta.</div>
+      <input type="file" id="accLogoFile" accept="image/*" style="display:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-ghost" type="button" id="accLogoUploadBtn" style="font-size:12px;padding:8px 14px;">📎 Enviar logotipo</button>
+        <img id="accLogoPreview" src="" style="display:none;height:40px;width:40px;object-fit:contain;border-radius:8px;border:1.5px solid var(--line);background:#fff;">
+        <button class="btn btn-ghost" type="button" id="accLogoRemoveBtn" style="display:none;font-size:12px;padding:8px 14px;">Remover</button>
+      </div>
+      <span id="accLogoStatus" style="font-size:11.5px;color:var(--ink-soft);"></span>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" data-close="overlayAccount">Cancelar</button>
       <button class="btn btn-primary" id="saveAccountBtn">Criar conta</button>
@@ -616,6 +627,8 @@ let accounts = [];
 let logEntries = [];
 let activeAccountId = null;
 let editingAccountId = null;
+let pendingLogoUrl = null; // logotipo em edição no modal de conta (antes de salvar)
+let pendingLogoTouched = false; // true se o usuário mexeu no logotipo nesta abertura do modal
 
 // Camada de armazenamento universal: usa window.storage aqui no chat,
 // e localStorage automaticamente quando a ferramenta está hospedada (fora do chat).
@@ -906,6 +919,9 @@ function renderLanes(){
       document.getElementById('accName').value = acc.name || '';
       document.getElementById('accNiche').value = acc.niche || '';
       document.getElementById('accTone').value = acc.tone || document.getElementById('accTone').options[0].value;
+      pendingLogoUrl = acc.logoUrl || null;
+      pendingLogoTouched = false;
+      renderAccLogoPreview();
       document.getElementById('overlayAccount').classList.add('show');
     });
   });
@@ -916,8 +932,27 @@ function renderLanes(){
     document.getElementById('accName').value='';
     document.getElementById('accNiche').value='';
     document.getElementById('accTone').selectedIndex = 0;
+    pendingLogoUrl = null;
+    pendingLogoTouched = false;
+    renderAccLogoPreview();
     document.getElementById('overlayAccount').classList.add('show');
   });
+}
+
+function renderAccLogoPreview(){
+  const img = document.getElementById('accLogoPreview');
+  const removeBtn = document.getElementById('accLogoRemoveBtn');
+  const statusEl = document.getElementById('accLogoStatus');
+  if(pendingLogoUrl){
+    img.src = pendingLogoUrl;
+    img.style.display = 'block';
+    removeBtn.style.display = 'inline-flex';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    removeBtn.style.display = 'none';
+  }
+  if(statusEl) statusEl.textContent = '';
 }
 
 function renderLog(){
@@ -1115,6 +1150,45 @@ document.getElementById('genFormat').addEventListener('change', ()=>{
   refreshUploadStatus();
 });
 
+document.getElementById('accLogoUploadBtn').addEventListener('click', ()=>{
+  document.getElementById('accLogoFile').click();
+});
+
+document.getElementById('accLogoRemoveBtn').addEventListener('click', ()=>{
+  pendingLogoUrl = null;
+  pendingLogoTouched = true;
+  renderAccLogoPreview();
+});
+
+document.getElementById('accLogoFile').addEventListener('change', async (e)=>{
+  const file = (e.target.files || [])[0];
+  if(!file) return;
+  const statusEl = document.getElementById('accLogoStatus');
+  statusEl.innerHTML = spinnerHtml('Enviando logotipo...');
+  try{
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const base64 = dataUrl.split(',')[1];
+    const res = await fetch('https://instagram-proxy-neon.vercel.app/api/upload', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ imageBase64: base64 })
+    });
+    const data = await res.json();
+    if(data.error){ statusEl.textContent = 'Erro: ' + data.error; return; }
+    pendingLogoUrl = data.url;
+    pendingLogoTouched = true;
+    renderAccLogoPreview();
+  }catch(err){
+    statusEl.textContent = 'Erro ao enviar logotipo: ' + err.message;
+  }
+  document.getElementById('accLogoFile').value = '';
+});
+
 document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('accName').value.trim();
   const niche = document.getElementById('accNiche').value.trim();
@@ -1122,14 +1196,20 @@ document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
   if(!name){ return; }
   if(editingAccountId){
     const acc = accounts.find(a=>a.id===editingAccountId);
-    if(acc){ acc.name = name; acc.niche = niche; acc.tone = tone; }
+    if(acc){
+      acc.name = name; acc.niche = niche; acc.tone = tone;
+      if(pendingLogoTouched) acc.logoUrl = pendingLogoUrl || '';
+    }
   } else {
     accounts.push({
       id: 'acc-' + Date.now(),
-      name, niche, tone
+      name, niche, tone,
+      logoUrl: pendingLogoUrl || ''
     });
   }
   editingAccountId = null;
+  pendingLogoUrl = null;
+  pendingLogoTouched = false;
   await persistAccounts();
   renderLanes();
   closeOverlay('overlayAccount');
@@ -1259,6 +1339,56 @@ function cropImageToAspect(dataUrl, targetW, targetH){
     };
     img.onerror = reject;
     img.src = dataUrl;
+  });
+}
+
+// Desenha o logotipo da conta no rodapé (centralizado, com um respiro nas
+// bordas) por cima de uma imagem já pronta (dataURL). Se a conta não tem
+// logotipo cadastrado, devolve a imagem original sem mexer.
+function applyLogoWatermark(dataUrl, logoUrl){
+  if(!logoUrl) return Promise.resolve(dataUrl);
+  return new Promise((resolve) => {
+    const base = new Image();
+    base.onload = () => {
+      const logo = new Image();
+      logo.crossOrigin = 'anonymous';
+      logo.onload = () => {
+        try{
+          const canvas = document.createElement('canvas');
+          canvas.width = base.width;
+          canvas.height = base.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(base, 0, 0, base.width, base.height);
+
+          // Logotipo com até 16% da largura da imagem, mantendo proporção.
+          const maxLogoW = base.width * 0.16;
+          const scale = Math.min(maxLogoW / logo.width, (base.height * 0.12) / logo.height);
+          const lw = logo.width * scale;
+          const lh = logo.height * scale;
+          const margin = base.width * 0.04;
+          const lx = (base.width - lw) / 2;
+          const ly = base.height - lh - margin;
+
+          ctx.save();
+          ctx.globalAlpha = 0.92;
+          ctx.shadowColor = 'rgba(0,0,0,0.45)';
+          ctx.shadowBlur = base.width * 0.02;
+          ctx.drawImage(logo, lx, ly, lw, lh);
+          ctx.restore();
+
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        }catch(e){
+          // Se o logotipo vier de outro domínio sem CORS liberado, o canvas
+          // fica "manchado" (tainted) e toDataURL falha -- nesse caso, sobe
+          // a imagem sem marca em vez de travar o post inteiro.
+          resolve(dataUrl);
+        }
+      };
+      logo.onerror = () => resolve(dataUrl);
+      logo.src = logoUrl;
+    };
+    base.onerror = () => resolve(dataUrl);
+    base.src = dataUrl;
   });
 }
 
@@ -1754,6 +1884,8 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
   const statusEl = document.getElementById('uploadStatus');
   const format = document.getElementById('genFormat').value;
   const allowsVideo = format.startsWith('Reel') || format === 'Story' || format.startsWith('Carrossel');
+  const activeAcc = accounts.find(a => a.id === activeAccountId);
+  const logoUrl = activeAcc ? activeAcc.logoUrl : '';
 
   for(let idx = 0; idx < files.length; idx++){
     const file = files[idx];
@@ -1771,16 +1903,32 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
           access: 'public',
           handleUploadUrl: 'https://instagram-proxy-neon.vercel.app/api/upload-video'
         });
-        uploadedVideos.push({ url: blob.url, name: file.name });
+        let finalVideoUrl = blob.url;
+        if(logoUrl){
+          statusEl.innerHTML = spinnerHtml('Aplicando logotipo no vídeo ' + (idx+1) + '/' + files.length + ' (pode demorar mais um pouco)...');
+          try{
+            const wmRes = await fetch('https://instagram-proxy-neon.vercel.app/api/watermark-video', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ videoUrl: blob.url, logoUrl })
+            });
+            const wmData = await wmRes.json();
+            if(wmData.url) finalVideoUrl = wmData.url;
+            // Se der erro (ex: vídeo grande demais / demorou mais que o limite
+            // do servidor), segue com o vídeo original sem marca em vez de
+            // travar o post inteiro.
+          }catch(wmErr){ /* segue com o vídeo original */ }
+        }
+        uploadedVideos.push({ url: finalVideoUrl, name: file.name });
         if(isMultiMediaFormat()){
           const arr = activeMultiSelection();
           const max = isCarouselFormat() ? 10 : STORY_SEQUENCE_MAX;
-          if(arr.length < max && multiIndexOf(blob.url) === -1){
-            arr.push({ type: 'video', url: blob.url });
+          if(arr.length < max && multiIndexOf(finalVideoUrl) === -1){
+            arr.push({ type: 'video', url: finalVideoUrl });
           }
           renderIgPreview();
         } else if(!document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
-          selectSingleMedia({ type: 'video', url: blob.url });
+          selectSingleMedia({ type: 'video', url: finalVideoUrl });
           renderIgPreview();
         }
         renderGallery();
@@ -1798,7 +1946,8 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
         });
         const target = getTargetAspect(format);
         const croppedDataUrl = await cropImageToAspect(dataUrl, target.w, target.h);
-        const base64 = croppedDataUrl.split(',')[1];
+        const watermarkedDataUrl = await applyLogoWatermark(croppedDataUrl, logoUrl);
+        const base64 = watermarkedDataUrl.split(',')[1];
         statusEl.innerHTML = spinnerHtml('Enviando imagem ' + (idx+1) + '/' + files.length + '...');
         const res = await fetch('https://instagram-proxy-neon.vercel.app/api/upload', {
           method: 'POST',
