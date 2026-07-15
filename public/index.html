@@ -446,6 +446,25 @@
   </div>
 </div>
 
+<!-- Modal: biblioteca de documentos de referência -->
+<div class="overlay" id="overlayLibrary">
+  <div class="modal" style="position:relative;">
+    <button class="close-x" data-close="overlayLibrary">&times;</button>
+    <h2>Biblioteca</h2>
+    <div class="sub" id="libSub">Documentos de referência pra essa conta.</div>
+    <div class="field">
+      <div class="sub" style="margin:-2px 0 8px;">Envie PDF, planilha (XLSX/CSV) ou texto (TXT/MD). O conteúdo é lido e usado como referência da marca quando a IA gerar legendas/roteiros — não é enviado pra ninguém além de ficar guardado aqui.</div>
+      <input type="file" id="libFile" accept=".pdf,.xlsx,.xls,.csv,.txt,.md" style="display:none;">
+      <button class="btn btn-ghost" type="button" id="libUploadBtn" style="font-size:12px;padding:8px 14px;">📎 Enviar documento</button>
+      <span id="libStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
+    </div>
+    <div id="libList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:280px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="overlayLibrary">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal/painel: gerar conteúdo, em etapas -->
 <div class="overlay" id="overlayGen">
   <div class="modal" style="position:relative;">
@@ -629,6 +648,8 @@ let activeAccountId = null;
 let editingAccountId = null;
 let pendingLogoUrl = null; // logotipo em edição no modal de conta (antes de salvar)
 let pendingLogoTouched = false; // true se o usuário mexeu no logotipo nesta abertura do modal
+let activeLibraryAccountId = null; // conta cuja Biblioteca está aberta no momento
+const DOCUMENT_API = 'https://instagram-proxy-neon.vercel.app/api/document';
 
 // Camada de armazenamento universal: usa window.storage aqui no chat,
 // e localStorage automaticamente quando a ferramenta está hospedada (fora do chat).
@@ -859,6 +880,7 @@ function renderLanes(){
       <div class="lane-actions">
         <button class="btn btn-primary" data-gen-id="${acc.id}">Gerar conteúdo</button>
         <button class="btn btn-ghost" data-edit-acc-id="${acc.id}">Editar</button>
+        <button class="btn btn-ghost" data-lib-id="${acc.id}">📚 Biblioteca</button>
         <button class="btn btn-ghost" data-del-id="${acc.id}">Remover</button>
       </div>
       <div class="connect-row">
@@ -925,6 +947,18 @@ function renderLanes(){
       document.getElementById('overlayAccount').classList.add('show');
     });
   });
+  el.querySelectorAll('[data-lib-id]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const id = e.target.getAttribute('data-lib-id');
+      const acc = accounts.find(a=>a.id===id);
+      if(!acc) return;
+      activeLibraryAccountId = id;
+      document.getElementById('libSub').textContent = 'Documentos de referência pra ' + acc.name + '.';
+      document.getElementById('libList').innerHTML = '<div style="font-size:12px;color:var(--ink-soft);">Carregando...</div>';
+      document.getElementById('overlayLibrary').classList.add('show');
+      loadLibraryDocs(id);
+    });
+  });
   document.getElementById('addLaneBtn').addEventListener('click', ()=>{
     editingAccountId = null;
     document.getElementById('accModalTitle').textContent = 'Nova conta';
@@ -953,6 +987,47 @@ function renderAccLogoPreview(){
     removeBtn.style.display = 'none';
   }
   if(statusEl) statusEl.textContent = '';
+}
+
+async function loadLibraryDocs(accountId){
+  const listEl = document.getElementById('libList');
+  try{
+    const res = await fetch(DOCUMENT_API + '?accountId=' + encodeURIComponent(accountId), { cache: 'no-store' });
+    const data = await res.json();
+    renderLibList(data.items || []);
+  }catch(err){
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--danger,#e11d48);">Erro ao carregar documentos: ' + err.message + '</div>';
+  }
+}
+
+function renderLibList(docs){
+  const listEl = document.getElementById('libList');
+  if(!docs.length){
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-soft);">Nenhum documento enviado ainda.</div>';
+    return;
+  }
+  listEl.innerHTML = docs.map(doc => {
+    const date = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('pt-BR') : '';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line,#e5e5e5);border-radius:8px;">' +
+      '<div style="min-width:0;">' +
+        '<div style="font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(doc.name) + '</div>' +
+        '<div style="font-size:11px;color:var(--ink-soft);">' + date + (doc.textTruncated ? ' · texto truncado' : '') + '</div>' +
+      '</div>' +
+      '<button class="btn btn-ghost" type="button" data-lib-del-id="' + doc.id + '" style="font-size:11px;padding:6px 10px;flex-shrink:0;">🗑️</button>' +
+    '</div>';
+  }).join('');
+  listEl.querySelectorAll('[data-lib-del-id]').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      const id = e.target.getAttribute('data-lib-del-id');
+      btn.disabled = true;
+      try{
+        await fetch(DOCUMENT_API + '?id=' + encodeURIComponent(id), { method: 'DELETE' });
+        loadLibraryDocs(activeLibraryAccountId);
+      }catch(err){
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function renderLog(){
@@ -1187,6 +1262,49 @@ document.getElementById('accLogoFile').addEventListener('change', async (e)=>{
     statusEl.textContent = 'Erro ao enviar logotipo: ' + err.message;
   }
   document.getElementById('accLogoFile').value = '';
+});
+
+document.getElementById('libUploadBtn').addEventListener('click', ()=>{
+  document.getElementById('libFile').click();
+});
+
+document.getElementById('libFile').addEventListener('change', async (e)=>{
+  const file = (e.target.files || [])[0];
+  if(!file || !activeLibraryAccountId) return;
+  const statusEl = document.getElementById('libStatus');
+  const MAX_DOC_BYTES = 4.5 * 1024 * 1024;
+  if(file.size > MAX_DOC_BYTES){
+    statusEl.textContent = 'Arquivo grande demais (limite de 4,5MB).';
+    document.getElementById('libFile').value = '';
+    return;
+  }
+  statusEl.innerHTML = spinnerHtml('Enviando e lendo documento...');
+  try{
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const base64 = dataUrl.split(',')[1];
+    const res = await fetch(DOCUMENT_API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        accountId: activeLibraryAccountId,
+        name: file.name,
+        type: file.type || '',
+        base64
+      })
+    });
+    const data = await res.json();
+    if(data.error){ statusEl.textContent = 'Erro: ' + data.error; return; }
+    statusEl.textContent = '';
+    loadLibraryDocs(activeLibraryAccountId);
+  }catch(err){
+    statusEl.textContent = 'Erro ao enviar documento: ' + err.message;
+  }
+  document.getElementById('libFile').value = '';
 });
 
 document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
