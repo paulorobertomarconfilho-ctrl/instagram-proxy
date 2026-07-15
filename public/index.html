@@ -2235,6 +2235,10 @@ function renderScheduled(items){
 }
 
 loadScheduled();
+// Reconsulta periodicamente pra "Agendados" subir sozinho pra "Publicados"
+// assim que o agendamento realmente publicar no Instagram (via cron), sem
+// precisar recarregar a página.
+setInterval(loadScheduled, 30000);
 
 loadData();
 </script>
