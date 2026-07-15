@@ -1377,6 +1377,9 @@ function resetGenFormForNewPost(){
   clearMediaState();
   document.getElementById('genProductLinks').value = '';
   document.getElementById('genScheduleAt').value = '';
+  const statusBox = document.getElementById('publishStatus');
+  statusBox.className = 'publish-status';
+  statusBox.innerHTML = '';
   exitEditMode();
   setGenStep(1);
 }
