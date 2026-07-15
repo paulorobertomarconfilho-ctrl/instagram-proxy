@@ -2064,7 +2064,11 @@ function wrapArtText(ctx, text, maxWidth){
   return lines;
 }
 
+let artLogoImgCache = null; // { url, img, loaded } - evita recarregar o logotipo a cada tecla
+let artRedrawGen = 0; // descarta callbacks assíncronos de redraws antigos (evita texto duplicado)
+
 function redrawArtCanvas(){
+  const gen = ++artRedrawGen;
   const canvas = document.getElementById('artCanvas');
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
@@ -2103,21 +2107,35 @@ function redrawArtCanvas(){
     });
   };
 
-  const useLogo = document.getElementById('artUseLogo').checked;
-  const acc = accounts.find(a => a.id === activeAccountId);
-  if(useLogo && acc && acc.logoUrl){
-    const logoImg = new Image();
-    logoImg.crossOrigin = 'anonymous';
-    logoImg.onload = () => {
+  // Só desenha se nenhum redraw mais novo começou nesse meio-tempo (evita
+  // que o logotipo carregando de forma assíncrona desenhe texto duplicado
+  // por cima de um fundo já desatualizado).
+  const finish = (logoImg) => {
+    if(gen !== artRedrawGen) return;
+    if(logoImg){
       const logoW = w * 0.28;
       const logoH = logoW * (logoImg.height / logoImg.width || 1);
       ctx.drawImage(logoImg, (w - logoW) / 2, h * 0.08, logoW, logoH);
-      drawTextBlock();
-    };
-    logoImg.onerror = () => { drawTextBlock(); };
-    logoImg.src = acc.logoUrl;
-  } else {
+    }
     drawTextBlock();
+  };
+
+  const useLogo = document.getElementById('artUseLogo').checked;
+  const acc = accounts.find(a => a.id === activeAccountId);
+  if(useLogo && acc && acc.logoUrl){
+    if(artLogoImgCache && artLogoImgCache.url === acc.logoUrl && artLogoImgCache.loaded){
+      finish(artLogoImgCache.img);
+    } else {
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      const cacheEntry = { url: acc.logoUrl, img: logoImg, loaded: false };
+      artLogoImgCache = cacheEntry;
+      logoImg.onload = () => { cacheEntry.loaded = true; finish(logoImg); };
+      logoImg.onerror = () => { finish(null); };
+      logoImg.src = acc.logoUrl;
+    }
+  } else {
+    finish(null);
   }
 }
 
