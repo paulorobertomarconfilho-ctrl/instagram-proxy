@@ -325,6 +325,17 @@
     .modal-actions .btn{ flex:1 1 auto; }
     #overlayGen .modal{ padding:18px 16px 24px; }
     .step-tab{ font-size:11px; padding:8px 4px 10px; }
+
+    /* Evita o zoom automático do iOS ao tocar em campos com fonte menor que 16px */
+    .field input,.field select,.field textarea,
+    #connIgId,#connToken,#accName,#accNiche,#genScheduleAt{ font-size:16px; }
+
+    /* Aumenta áreas de toque pequenas demais pro dedo (recomendação mínima ~28-32px) */
+    .thumb-edit-btn{ width:28px; height:28px; font-size:13px; top:-8px; right:-8px; }
+    .thumb-edit-btn[style*="left"]{ left:-8px !important; }
+    .emoji-btn{ font-size:18px; padding:4px 8px; }
+    .ig-preview-arrow{ width:32px; height:32px; font-size:16px; }
+    .emoji-popover button{ padding:7px; font-size:20px; }
   }
 </style>
 </head>
