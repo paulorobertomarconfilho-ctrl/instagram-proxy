@@ -569,6 +569,19 @@
 </div>
 
 <script>
+// A Vercel gera varios enderecos pra este mesmo app (dominio git-main, URLs de
+// preview por deploy, etc). Cada endereco tem seu proprio "cofre" de dados no
+// navegador (localStorage), entao acessar por um endereco diferente do canonico
+// faz parecer que contas/posts sumiram (na verdade ficaram salvos no outro
+// endereco). Pra nunca mais acontecer, qualquer acesso fora do dominio oficial
+// e redirecionado automaticamente pra ele.
+(function(){
+  const CANONICAL_HOST = 'instagram-proxy-neon.vercel.app';
+  if(location.hostname.endsWith('.vercel.app') && location.hostname !== CANONICAL_HOST){
+    location.replace('https://' + CANONICAL_HOST + location.pathname + location.search + location.hash);
+  }
+})();
+
 const LANE_COLORS = ['#7C3AED','#EC4899','#F59E0B','#10B981','#3B82F6','#F43F5E'];
 let accounts = [];
 let logEntries = [];
