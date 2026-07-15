@@ -672,7 +672,7 @@ function setGenStep(step){
     p.classList.toggle('active', p.getAttribute('data-step-panel') === step);
   });
   document.querySelector('.gen-body').scrollTop = 0;
-  if(step === '2') renderGallery();
+  if(step === '2'){ renderGallery(); refreshUploadStatus(); }
   if(step === '3') renderIgPreview();
 }
 
@@ -1060,6 +1060,7 @@ document.getElementById('genFormat').addEventListener('change', ()=>{
   }
   renderGallery();
   renderIgPreview();
+  refreshUploadStatus();
 });
 
 document.getElementById('saveAccountBtn').addEventListener('click', async ()=>{
@@ -1772,7 +1773,17 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
       }
     }
   }
+  refreshUploadStatus();
+});
+
+// Recalcula o texto de status da galeria a partir do estado atual (formato + seleção),
+// pra não ficar com uma mensagem antiga (ex: "entrou no carrossel") depois que o
+// formato muda pra Story/Reel/etc sem um novo upload.
+function refreshUploadStatus(){
+  const statusEl = document.getElementById('uploadStatus');
+  if(!statusEl) return;
   const total = uploadedImages.length + uploadedVideos.length;
+  if(total === 0){ statusEl.innerHTML = ''; return; }
   let doneMsg;
   if(isCarouselFormat()){
     doneMsg = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. Todos entraram no carrossel — clique numa miniatura pra tirar ou trocar a ordem.';
@@ -1783,8 +1794,8 @@ document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
   } else {
     doneMsg = total + ' arquivo' + (total>1?'s':'') + ' pronto' + (total>1?'s':'') + '. Clique numa miniatura pra escolher.';
   }
-  statusEl.innerHTML = total > 0 ? successHtml(doneMsg) : doneMsg;
-});
+  statusEl.innerHTML = successHtml(doneMsg);
+}
 
 function formatIcon(format){
   if(!format) return '📝';
