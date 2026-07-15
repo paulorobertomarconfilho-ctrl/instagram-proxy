@@ -482,9 +482,12 @@
         <select id="artBgMode" style="border:1.5px solid #E8E2F7;background:var(--paper-2);border-radius:10px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:12.5px;">
           <option value="gradient">Gradiente</option>
           <option value="solid">Cor sólida</option>
+          <option value="ai">Gerada por IA</option>
         </select>
       </label>
-      <label style="font-size:10.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:2px;">Cor 1 <input type="color" id="artBgColor1" value="#7C3AED"></label>
+      <span id="artBgColor1Wrap" style="display:flex;flex-direction:column;gap:2px;">
+        <label style="font-size:10.5px;color:var(--ink-soft);">Cor 1 <input type="color" id="artBgColor1" value="#7C3AED"></label>
+      </span>
       <span id="artBgColor2Wrap" style="display:flex;flex-direction:column;gap:2px;">
         <label style="font-size:10.5px;color:var(--ink-soft);">Cor 2 <input type="color" id="artBgColor2" value="#EC4899"></label>
       </span>
@@ -492,6 +495,12 @@
         <input type="checkbox" id="artUseLogo"> Incluir logotipo da conta
       </span>
     </div>
+
+    <div class="edit-row" id="artAiPromptWrap" style="display:none;">
+      <input id="artAiPrompt" placeholder="Descreva o fundo (ex: textura de mármore rosa clean, iluminação suave)" style="flex:1;min-width:220px;border:1.5px solid #E8E2F7;background:var(--paper-2);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13px;">
+      <button class="btn btn-primary" type="button" id="artAiGenerateBtn" style="font-size:11.5px;">✨ Gerar com IA</button>
+    </div>
+    <div id="artAiStatus" style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;"></div>
 
     <div class="field" style="margin-top:10px;">
       <textarea id="artTextInput" rows="3" placeholder="Escreva a frase da arte..." style="width:100%;border:1.5px solid #E8E2F7;background:var(--paper-2);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13.5px;resize:vertical;"></textarea>
@@ -2066,6 +2075,27 @@ function wrapArtText(ctx, text, maxWidth){
 
 let artLogoImgCache = null; // { url, img, loaded } - evita recarregar o logotipo a cada tecla
 let artRedrawGen = 0; // descarta callbacks assíncronos de redraws antigos (evita texto duplicado)
+let artAiImg = null; // Image já carregada do fundo gerado por IA (fica até gerar outro ou fechar o modal)
+
+// Desenha `img` cobrindo todo o canvas (w x h), cortando o excesso — igual ao
+// CSS object-fit:cover — pra imagem gerada pela IA nunca aparecer distorcida.
+function drawImageCover(ctx, img, w, h){
+  const imgRatio = img.width / img.height;
+  const targetRatio = w / h;
+  let sx, sy, sw, sh;
+  if(imgRatio > targetRatio){
+    sh = img.height;
+    sw = sh * targetRatio;
+    sx = (img.width - sw) / 2;
+    sy = 0;
+  } else {
+    sw = img.width;
+    sh = sw / targetRatio;
+    sx = 0;
+    sy = (img.height - sh) / 2;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+}
 
 function redrawArtCanvas(){
   const gen = ++artRedrawGen;
@@ -2073,18 +2103,27 @@ function redrawArtCanvas(){
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   const mode = document.getElementById('artBgMode').value;
-  const c1 = document.getElementById('artBgColor1').value;
-  const c2 = document.getElementById('artBgColor2').value;
 
-  if(mode === 'gradient'){
-    const grad = ctx.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, c1);
-    grad.addColorStop(1, c2);
-    ctx.fillStyle = grad;
+  if(mode === 'ai'){
+    if(artAiImg){
+      drawImageCover(ctx, artAiImg, w, h);
+    } else {
+      ctx.fillStyle = '#E8E2F7';
+      ctx.fillRect(0, 0, w, h);
+    }
   } else {
-    ctx.fillStyle = c1;
+    const c1 = document.getElementById('artBgColor1').value;
+    const c2 = document.getElementById('artBgColor2').value;
+    if(mode === 'gradient'){
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, c1);
+      grad.addColorStop(1, c2);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = c1;
+    }
+    ctx.fillRect(0, 0, w, h);
   }
-  ctx.fillRect(0, 0, w, h);
 
   const text = document.getElementById('artTextInput').value.trim();
   const textColor = document.getElementById('artTextColor').value;
@@ -2139,9 +2178,11 @@ function redrawArtCanvas(){
   }
 }
 
-function toggleArtBgColor2(){
+function updateArtBgControls(){
   const mode = document.getElementById('artBgMode').value;
+  document.getElementById('artBgColor1Wrap').style.display = mode === 'ai' ? 'none' : 'flex';
   document.getElementById('artBgColor2Wrap').style.display = mode === 'gradient' ? 'flex' : 'none';
+  document.getElementById('artAiPromptWrap').style.display = mode === 'ai' ? 'flex' : 'none';
 }
 
 document.getElementById('createArtBtn').addEventListener('click', ()=>{
@@ -2158,6 +2199,9 @@ document.getElementById('createArtBtn').addEventListener('click', ()=>{
   document.getElementById('artTextColor').value = '#ffffff';
   document.getElementById('artTextSize').value = 64;
   document.getElementById('artTextY').value = 50;
+  document.getElementById('artAiPrompt').value = '';
+  document.getElementById('artAiStatus').textContent = '';
+  artAiImg = null;
 
   const acc = accounts.find(a => a.id === activeAccountId);
   const logoWrap = document.getElementById('artUseLogoWrap');
@@ -2170,16 +2214,52 @@ document.getElementById('createArtBtn').addEventListener('click', ()=>{
     useLogoCb.checked = false;
   }
 
-  toggleArtBgColor2();
+  updateArtBgControls();
   redrawArtCanvas();
   document.getElementById('overlayArtCreator').classList.add('show');
 });
 
 ['artBgMode','artBgColor1','artBgColor2','artTextInput','artTextColor','artTextSize','artTextY','artUseLogo'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
-    if(id === 'artBgMode') toggleArtBgColor2();
+    if(id === 'artBgMode') updateArtBgControls();
     redrawArtCanvas();
   });
+});
+
+document.getElementById('artAiGenerateBtn').addEventListener('click', async ()=>{
+  const promptText = document.getElementById('artAiPrompt').value.trim();
+  const statusEl = document.getElementById('artAiStatus');
+  if(!promptText){ statusEl.textContent = 'Escreve uma descrição pro fundo primeiro.'; return; }
+
+  const acc = accounts.find(a => a.id === activeAccountId);
+  const canvas = document.getElementById('artCanvas');
+  const btn = document.getElementById('artAiGenerateBtn');
+  const fullPrompt = 'Fundo de imagem para post de Instagram' + (acc && acc.niche ? ' sobre ' + acc.niche : '') +
+    '. ' + promptText + '. Sem nenhum texto, letra, número ou marca d\'água na imagem — só o visual de fundo.';
+
+  statusEl.innerHTML = spinnerHtml('Gerando imagem com IA (pode levar uns 20-30s)...');
+  btn.disabled = true;
+  try{
+    const res = await fetch('https://instagram-proxy-neon.vercel.app/api/generate-image', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt: fullPrompt, width: canvas.width, height: canvas.height })
+    });
+    const data = await res.json();
+    if(data.error){ statusEl.textContent = 'Erro: ' + data.error; return; }
+    const img = new Image();
+    img.onload = () => {
+      artAiImg = img;
+      statusEl.textContent = '';
+      redrawArtCanvas();
+    };
+    img.onerror = () => { statusEl.textContent = 'Erro ao carregar a imagem gerada.'; };
+    img.src = 'data:image/png;base64,' + data.base64;
+  }catch(err){
+    statusEl.textContent = 'Erro ao gerar: ' + err.message;
+  }finally{
+    btn.disabled = false;
+  }
 });
 
 document.getElementById('artUseBtn').addEventListener('click', async ()=>{
