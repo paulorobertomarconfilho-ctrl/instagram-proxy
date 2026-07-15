@@ -465,6 +465,49 @@
   </div>
 </div>
 
+<!-- Modal: criar arte com texto (fundo + frase), pra Reel/Carrossel -->
+<div class="overlay" id="overlayArtCreator">
+  <div class="modal" style="position:relative;max-width:480px;">
+    <button class="close-x" data-close="overlayArtCreator">&times;</button>
+    <h2>Criar arte com texto</h2>
+    <div class="sub">Monte uma imagem com fundo + frase, sem precisar de outra ferramenta.</div>
+
+    <div class="edit-canvas-wrap" style="margin-top:10px;">
+      <canvas id="artCanvas"></canvas>
+    </div>
+
+    <div class="edit-row">
+      <label style="font-size:10.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:2px;">Fundo
+        <select id="artBgMode" style="border:1.5px solid #E8E2F7;background:var(--paper-2);border-radius:10px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:12.5px;">
+          <option value="gradient">Gradiente</option>
+          <option value="solid">Cor sólida</option>
+        </select>
+      </label>
+      <label style="font-size:10.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:2px;">Cor 1 <input type="color" id="artBgColor1" value="#7C3AED"></label>
+      <span id="artBgColor2Wrap" style="display:flex;flex-direction:column;gap:2px;">
+        <label style="font-size:10.5px;color:var(--ink-soft);">Cor 2 <input type="color" id="artBgColor2" value="#EC4899"></label>
+      </span>
+      <span id="artUseLogoWrap" style="display:none;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft);">
+        <input type="checkbox" id="artUseLogo"> Incluir logotipo da conta
+      </span>
+    </div>
+
+    <div class="field" style="margin-top:10px;">
+      <textarea id="artTextInput" rows="3" placeholder="Escreva a frase da arte..." style="width:100%;border:1.5px solid #E8E2F7;background:var(--paper-2);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13.5px;resize:vertical;"></textarea>
+    </div>
+    <div class="edit-controls">
+      <label>Cor do texto <input type="color" id="artTextColor" value="#ffffff"></label>
+      <label>Tamanho <input type="range" id="artTextSize" min="24" max="120" value="64"></label>
+      <label>Posição vertical <input type="range" id="artTextY" min="10" max="90" value="50"></label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" type="button" id="artUseBtn">Usar essa arte</button>
+      <button class="btn btn-ghost" data-close="overlayArtCreator">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal/painel: gerar conteúdo, em etapas -->
 <div class="overlay" id="overlayGen">
   <div class="modal" style="position:relative;">
@@ -539,6 +582,7 @@
           <div>
             <input type="file" id="genMediaFile" accept="image/*,video/*,.mov,.mp4,.m4v,.heic,.heif" multiple style="display:none;">
             <button class="btn btn-ghost" id="genMediaUploadBtn" type="button" style="font-size:12px;padding:8px 14px;">📎 Enviar fotos/vídeos do celular/computador</button>
+            <button class="btn btn-ghost" id="createArtBtn" type="button" style="font-size:12px;padding:8px 14px;">🎨 Criar arte com texto</button>
             <span id="uploadStatus" style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;"></span>
           </div>
           <div id="imageGallery" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"></div>
@@ -1995,6 +2039,171 @@ document.getElementById('genImageUrl').addEventListener('input', ()=>{
   renderGallery();
   renderTagsInfo();
   renderIgPreview();
+});
+
+// ---- Criar arte com texto (fundo + frase), sem precisar de outra ferramenta ----
+function wrapArtText(ctx, text, maxWidth){
+  const paragraphs = text.split('\n');
+  const lines = [];
+  paragraphs.forEach(p=>{
+    const words = p.split(' ').filter(w=>w.length);
+    if(!words.length){ lines.push(''); return; }
+    let line = '';
+    words.forEach(word=>{
+      const test = line ? line + ' ' + word : word;
+      if(ctx.measureText(test).width > maxWidth && line){
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    });
+    lines.push(line);
+  });
+  return lines;
+}
+
+function redrawArtCanvas(){
+  const canvas = document.getElementById('artCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const mode = document.getElementById('artBgMode').value;
+  const c1 = document.getElementById('artBgColor1').value;
+  const c2 = document.getElementById('artBgColor2').value;
+
+  if(mode === 'gradient'){
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, c1);
+    grad.addColorStop(1, c2);
+    ctx.fillStyle = grad;
+  } else {
+    ctx.fillStyle = c1;
+  }
+  ctx.fillRect(0, 0, w, h);
+
+  const text = document.getElementById('artTextInput').value.trim();
+  const textColor = document.getElementById('artTextColor').value;
+  const fontSize = parseInt(document.getElementById('artTextSize').value, 10);
+  const yPct = parseInt(document.getElementById('artTextY').value, 10) / 100;
+
+  const drawTextBlock = () => {
+    if(!text) return;
+    ctx.fillStyle = textColor;
+    ctx.font = 'bold ' + fontSize + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const maxWidth = w * 0.84;
+    const lines = wrapArtText(ctx, text, maxWidth);
+    const lineHeight = fontSize * 1.25;
+    const totalHeight = lines.length * lineHeight;
+    let startY = (h * yPct) - (totalHeight / 2) + (lineHeight / 2);
+    lines.forEach((line, i) => {
+      ctx.fillText(line, w / 2, startY + i * lineHeight);
+    });
+  };
+
+  const useLogo = document.getElementById('artUseLogo').checked;
+  const acc = accounts.find(a => a.id === activeAccountId);
+  if(useLogo && acc && acc.logoUrl){
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    logoImg.onload = () => {
+      const logoW = w * 0.28;
+      const logoH = logoW * (logoImg.height / logoImg.width || 1);
+      ctx.drawImage(logoImg, (w - logoW) / 2, h * 0.08, logoW, logoH);
+      drawTextBlock();
+    };
+    logoImg.onerror = () => { drawTextBlock(); };
+    logoImg.src = acc.logoUrl;
+  } else {
+    drawTextBlock();
+  }
+}
+
+function toggleArtBgColor2(){
+  const mode = document.getElementById('artBgMode').value;
+  document.getElementById('artBgColor2Wrap').style.display = mode === 'gradient' ? 'flex' : 'none';
+}
+
+document.getElementById('createArtBtn').addEventListener('click', ()=>{
+  const format = document.getElementById('genFormat').value;
+  const target = getTargetAspect(format);
+  const canvas = document.getElementById('artCanvas');
+  canvas.width = target.w;
+  canvas.height = target.h;
+
+  document.getElementById('artTextInput').value = '';
+  document.getElementById('artBgMode').value = 'gradient';
+  document.getElementById('artBgColor1').value = '#7C3AED';
+  document.getElementById('artBgColor2').value = '#EC4899';
+  document.getElementById('artTextColor').value = '#ffffff';
+  document.getElementById('artTextSize').value = 64;
+  document.getElementById('artTextY').value = 50;
+
+  const acc = accounts.find(a => a.id === activeAccountId);
+  const logoWrap = document.getElementById('artUseLogoWrap');
+  const useLogoCb = document.getElementById('artUseLogo');
+  if(acc && acc.logoUrl){
+    logoWrap.style.display = 'flex';
+    useLogoCb.checked = true;
+  } else {
+    logoWrap.style.display = 'none';
+    useLogoCb.checked = false;
+  }
+
+  toggleArtBgColor2();
+  redrawArtCanvas();
+  document.getElementById('overlayArtCreator').classList.add('show');
+});
+
+['artBgMode','artBgColor1','artBgColor2','artTextInput','artTextColor','artTextSize','artTextY','artUseLogo'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{
+    if(id === 'artBgMode') toggleArtBgColor2();
+    redrawArtCanvas();
+  });
+});
+
+document.getElementById('artUseBtn').addEventListener('click', async ()=>{
+  const canvas = document.getElementById('artCanvas');
+  let dataUrl;
+  try{
+    dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  }catch(err){
+    alert('Não foi possível gerar a arte: ' + err.message);
+    return;
+  }
+  const base64 = dataUrl.split(',')[1];
+  const btn = document.getElementById('artUseBtn');
+  btn.innerHTML = spinnerHtml('Salvando arte...');
+  btn.disabled = true;
+  try{
+    const res = await fetch('https://instagram-proxy-neon.vercel.app/api/upload', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ imageBase64: base64 })
+    });
+    const data = await res.json();
+    if(data.error){ alert('Erro ao salvar: ' + data.error); return; }
+    uploadedImages.push({ url: data.url });
+    if(isMultiMediaFormat()){
+      const arr = activeMultiSelection();
+      const max = isCarouselFormat() ? 10 : STORY_SEQUENCE_MAX;
+      if(arr.length < max && multiIndexOf(data.url) === -1){
+        arr.push({ type: 'image', url: data.url });
+      }
+      renderIgPreview();
+    } else if(!document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
+      selectSingleMedia({ type: 'image', url: data.url });
+      renderIgPreview();
+    }
+    renderGallery();
+    closeOverlay('overlayArtCreator');
+  }catch(err){
+    alert('Erro ao salvar arte: ' + err.message);
+  }finally{
+    btn.innerHTML = 'Usar essa arte';
+    btn.disabled = false;
+  }
 });
 
 document.getElementById('genMediaFile').addEventListener('change', async (e)=>{
