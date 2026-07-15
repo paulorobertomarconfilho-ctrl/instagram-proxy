@@ -490,6 +490,7 @@
       <div class="step-panel" data-step-panel="2">
         <div class="field" id="genImageRow">
           <label>Fotos e vídeos do post</label>
+          <div id="genFormatBadge" style="display:inline-flex;align-items:center;gap:5px;background:var(--paper-2);border:1.5px solid var(--line);border-radius:999px;padding:4px 12px;font-size:11.5px;font-weight:700;color:var(--purple-dark);margin-bottom:12px;"></div>
           <input type="hidden" id="genImageUrl" value="">
           <input type="hidden" id="genVideoUrl" value="">
           <div>
@@ -671,6 +672,7 @@ function setGenStep(step){
     p.classList.toggle('active', p.getAttribute('data-step-panel') === step);
   });
   document.querySelector('.gen-body').scrollTop = 0;
+  if(step === '2') renderGallery();
   if(step === '3') renderIgPreview();
 }
 
@@ -1396,6 +1398,11 @@ function renderGallery(){
   const format = document.getElementById('genFormat').value;
   const currentImgUrl = document.getElementById('genImageUrl').value.trim();
   const currentVidUrl = document.getElementById('genVideoUrl').value.trim();
+
+  const formatBadge = document.getElementById('genFormatBadge');
+  if(formatBadge){
+    formatBadge.innerHTML = formatIcon(format) + ' ' + escapeHtml(format);
+  }
 
   const multi = isMultiMediaFormat();
   const storyMode = isStoryFormat();
