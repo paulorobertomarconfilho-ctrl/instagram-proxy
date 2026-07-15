@@ -1339,6 +1339,7 @@ function renderGallery(){
   el.innerHTML = '';
   const items = getAllMediaItems();
   const carousel = isCarouselFormat();
+  const format = document.getElementById('genFormat').value;
   const currentImgUrl = document.getElementById('genImageUrl').value.trim();
   const currentVidUrl = document.getElementById('genVideoUrl').value.trim();
 
@@ -1429,9 +1430,14 @@ function renderGallery(){
   const hint = document.getElementById('carouselHint');
   if(carousel){
     hint.style.display = 'block';
+    hint.style.color = 'var(--purple-dark)';
     hint.textContent = carouselSelection.length < 2
       ? 'Selecione pelo menos 2 itens pra formar o carrossel (' + carouselSelection.length + ' selecionado' + (carouselSelection.length === 1 ? '' : 's') + ').'
       : carouselSelection.length + ' itens selecionados, nessa ordem.';
+  } else if(items.length > 1){
+    hint.style.display = 'block';
+    hint.style.color = '#B45309';
+    hint.textContent = '⚠️ ' + items.length + ' arquivos enviados, mas o formato "' + format + '" publica só 1 por vez. Clique na miniatura da que você quer usar. Pra postar as outras, gere um novo post pra cada uma (ou troque pra Carrossel se quiser todas juntas no Feed).';
   } else {
     hint.style.display = 'none';
   }
