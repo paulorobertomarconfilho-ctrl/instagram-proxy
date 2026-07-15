@@ -1031,6 +1031,20 @@ document.querySelectorAll('.step-tab').forEach(tab=>{
   document.getElementById(id).addEventListener('input', renderIgPreview);
 });
 document.getElementById('genFormat').addEventListener('change', ()=>{
+  // Migra a seleção existente pro novo modo do formato, pra não "perder" a foto
+  // já escolhida quando o formato muda de single-select pra Story/Carrossel (ou vice-versa).
+  if(isMultiMediaFormat()){
+    const arr = activeMultiSelection();
+    if(arr.length === 0){
+      const imgUrl = document.getElementById('genImageUrl').value.trim();
+      const vidUrl = document.getElementById('genVideoUrl').value.trim();
+      if(imgUrl) arr.push({ type: 'image', url: imgUrl });
+      else if(vidUrl) arr.push({ type: 'video', url: vidUrl });
+    }
+  } else if(!document.getElementById('genImageUrl').value.trim() && !document.getElementById('genVideoUrl').value.trim()){
+    const source = carouselSelection.length ? carouselSelection[0] : (storySequence.length ? storySequence[0] : null);
+    if(source) selectSingleMedia(source);
+  }
   renderGallery();
   renderIgPreview();
 });
@@ -1637,10 +1651,15 @@ document.getElementById('editSaveBtn').addEventListener('click', async ()=>{
     if(document.getElementById('genImageUrl').value.trim() === oldUrl){
       document.getElementById('genImageUrl').value = data.url;
     }
+    const ci = carouselSelection.findIndex(i => i.url === oldUrl);
+    if(ci > -1) carouselSelection[ci] = { type: 'image', url: data.url };
+    const si = storySequence.findIndex(i => i.url === oldUrl);
+    if(si > -1) storySequence[si] = { type: 'image', url: data.url };
     document.getElementById('imageEditor').style.display = 'none';
     editingIndex = null;
     renderGallery();
     renderTagsInfo();
+    renderIgPreview();
   }catch(err){
     alert('Erro ao salvar: ' + err.message);
   }finally{
