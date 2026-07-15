@@ -491,9 +491,6 @@
       <span id="artBgColor2Wrap" style="display:flex;flex-direction:column;gap:2px;">
         <label style="font-size:10.5px;color:var(--ink-soft);">Cor 2 <input type="color" id="artBgColor2" value="#EC4899"></label>
       </span>
-      <span id="artUseLogoWrap" style="display:none;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft);">
-        <input type="checkbox" id="artUseLogo"> Incluir logotipo da conta
-      </span>
     </div>
 
     <div class="edit-row" id="artAiPromptWrap" style="display:none;">
@@ -2073,8 +2070,6 @@ function wrapArtText(ctx, text, maxWidth){
   return lines;
 }
 
-let artLogoImgCache = null; // { url, img, loaded } - evita recarregar o logotipo a cada tecla
-let artRedrawGen = 0; // descarta callbacks assíncronos de redraws antigos (evita texto duplicado)
 let artAiImg = null; // Image já carregada do fundo gerado por IA (fica até gerar outro ou fechar o modal)
 
 // Desenha `img` cobrindo todo o canvas (w x h), cortando o excesso — igual ao
@@ -2098,7 +2093,6 @@ function drawImageCover(ctx, img, w, h){
 }
 
 function redrawArtCanvas(){
-  const gen = ++artRedrawGen;
   const canvas = document.getElementById('artCanvas');
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
@@ -2126,12 +2120,10 @@ function redrawArtCanvas(){
   }
 
   const text = document.getElementById('artTextInput').value.trim();
-  const textColor = document.getElementById('artTextColor').value;
-  const fontSize = parseInt(document.getElementById('artTextSize').value, 10);
-  const yPct = parseInt(document.getElementById('artTextY').value, 10) / 100;
-
-  const drawTextBlock = () => {
-    if(!text) return;
+  if(text){
+    const textColor = document.getElementById('artTextColor').value;
+    const fontSize = parseInt(document.getElementById('artTextSize').value, 10);
+    const yPct = parseInt(document.getElementById('artTextY').value, 10) / 100;
     ctx.fillStyle = textColor;
     ctx.font = 'bold ' + fontSize + 'px sans-serif';
     ctx.textAlign = 'center';
@@ -2144,37 +2136,6 @@ function redrawArtCanvas(){
     lines.forEach((line, i) => {
       ctx.fillText(line, w / 2, startY + i * lineHeight);
     });
-  };
-
-  // Só desenha se nenhum redraw mais novo começou nesse meio-tempo (evita
-  // que o logotipo carregando de forma assíncrona desenhe texto duplicado
-  // por cima de um fundo já desatualizado).
-  const finish = (logoImg) => {
-    if(gen !== artRedrawGen) return;
-    if(logoImg){
-      const logoW = w * 0.28;
-      const logoH = logoW * (logoImg.height / logoImg.width || 1);
-      ctx.drawImage(logoImg, (w - logoW) / 2, h * 0.08, logoW, logoH);
-    }
-    drawTextBlock();
-  };
-
-  const useLogo = document.getElementById('artUseLogo').checked;
-  const acc = accounts.find(a => a.id === activeAccountId);
-  if(useLogo && acc && acc.logoUrl){
-    if(artLogoImgCache && artLogoImgCache.url === acc.logoUrl && artLogoImgCache.loaded){
-      finish(artLogoImgCache.img);
-    } else {
-      const logoImg = new Image();
-      logoImg.crossOrigin = 'anonymous';
-      const cacheEntry = { url: acc.logoUrl, img: logoImg, loaded: false };
-      artLogoImgCache = cacheEntry;
-      logoImg.onload = () => { cacheEntry.loaded = true; finish(logoImg); };
-      logoImg.onerror = () => { finish(null); };
-      logoImg.src = acc.logoUrl;
-    }
-  } else {
-    finish(null);
   }
 }
 
@@ -2203,23 +2164,12 @@ document.getElementById('createArtBtn').addEventListener('click', ()=>{
   document.getElementById('artAiStatus').textContent = '';
   artAiImg = null;
 
-  const acc = accounts.find(a => a.id === activeAccountId);
-  const logoWrap = document.getElementById('artUseLogoWrap');
-  const useLogoCb = document.getElementById('artUseLogo');
-  if(acc && acc.logoUrl){
-    logoWrap.style.display = 'flex';
-    useLogoCb.checked = true;
-  } else {
-    logoWrap.style.display = 'none';
-    useLogoCb.checked = false;
-  }
-
   updateArtBgControls();
   redrawArtCanvas();
   document.getElementById('overlayArtCreator').classList.add('show');
 });
 
-['artBgMode','artBgColor1','artBgColor2','artTextInput','artTextColor','artTextSize','artTextY','artUseLogo'].forEach(id=>{
+['artBgMode','artBgColor1','artBgColor2','artTextInput','artTextColor','artTextSize','artTextY'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
     if(id === 'artBgMode') updateArtBgControls();
     redrawArtCanvas();
