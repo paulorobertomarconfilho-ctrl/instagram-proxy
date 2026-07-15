@@ -12,6 +12,9 @@
     "api/watermark-video.js": {
       "includeFiles": "node_modules/@ffmpeg-installer/**",
       "maxDuration": 60
+    },
+    "api/document.js": {
+      "maxDuration": 30
     }
   }
 }
