@@ -640,7 +640,7 @@ const storageLayer = {
 const LOG_API = 'https://instagram-proxy-neon.vercel.app/api/log';
 
 async function fetchServerLog(){
-  const res = await fetch(LOG_API);
+  const res = await fetch(LOG_API, { cache: 'no-store' });
   const data = await res.json();
   return data.items || [];
 }
@@ -2205,7 +2205,7 @@ document.getElementById('genScheduleBtn').addEventListener('click', async ()=>{
 
 async function loadScheduled(){
   try{
-    const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule');
+    const res = await fetch('https://instagram-proxy-neon.vercel.app/api/schedule', { cache: 'no-store' });
     const data = await res.json();
     const items = data.items || [];
     renderScheduled(items);
