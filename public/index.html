@@ -619,8 +619,18 @@ async function persistAccounts(){
   catch(e){ console.error('Falha ao salvar contas', e); }
 }
 async function persistLog(){
-  try{ await storageLayer.set('log-entries', JSON.stringify(logEntries)); }
-  catch(e){ console.error('Falha ao salvar registro', e); }
+  try{
+    // Evita perder posts salvos por outra aba/janela aberta ao mesmo tempo:
+    // antes de gravar, junta com o que já está salvo (por id) em vez de sobrescrever tudo.
+    const stored = await storageLayer.get('log-entries');
+    const storedEntries = stored ? JSON.parse(stored) : [];
+    const localIds = new Set(logEntries.filter(e => e.id).map(e => e.id));
+    const missing = storedEntries.filter(e => e.id && !localIds.has(e.id));
+    if(missing.length){
+      logEntries = logEntries.concat(missing);
+    }
+    await storageLayer.set('log-entries', JSON.stringify(logEntries));
+  }catch(e){ console.error('Falha ao salvar registro', e); }
 }
 
 function colorFor(id){
@@ -1078,6 +1088,7 @@ document.getElementById('genSaveBtn').addEventListener('click', async ()=>{
   const manualText = document.getElementById('genManualText').value.trim();
   const content = appendProductLinks(manualText || document.getElementById('genResult').dataset.generated || '');
   logEntries.push({
+    id: 'log-' + Date.now() + '-' + Math.random().toString(36).slice(2,8),
     date: new Date().toLocaleDateString('pt-BR'),
     time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
     accountName: acc.name,
@@ -1729,6 +1740,7 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
     if(data.post_id){
       const topic = document.getElementById('genTopic').value.trim();
       logEntries.push({
+        id: 'log-' + Date.now() + '-' + Math.random().toString(36).slice(2,8),
         date: new Date().toLocaleDateString('pt-BR'),
         time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
         accountName: acc.name,
