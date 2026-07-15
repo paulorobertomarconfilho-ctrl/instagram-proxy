@@ -45,6 +45,9 @@ try {
   if (isCarousel) {
     const childrenIds = await buildCarouselChildren(igId, token, carouselItems);
     const parentId = await createCarouselParent(igId, token, childrenIds, caption || '');
+    if (!parentId) {
+      return res.status(400).json({ error: 'O Instagram não retornou um ID de criação pro carrossel. Tenta de novo em alguns segundos.' });
+    }
 
     let ready = false;
     for (let i = 0; i < 15; i++) {
@@ -105,6 +108,13 @@ try {
   }
 
   const creationId = createData.id;
+  if (!creationId) {
+    // Acontece quando a Meta devolve uma resposta sem "error" e sem "id"
+    // (falha momentânea da API). Sem essa checagem, o código seguia consultando
+    // "/undefined?fields=status_code" e a Meta devolvia "The requested resource
+    // does not exist" — uma mensagem confusa que escondia o problema real.
+    return res.status(400).json({ error: 'O Instagram não retornou um ID de criação pra essa mídia (resposta inesperada). Tenta publicar de novo em alguns segundos — se persistir, pode ser instabilidade momentânea da API do Instagram.' });
+  }
 
   // Vídeo demora bem mais que imagem pra processar no Instagram.
   const maxAttempts = isVideo ? 80 : 8;

@@ -22,6 +22,12 @@ export async function createCarouselChild(igId, token, item){
   });
   const data = await res.json();
   if(data.error) throw new Error(data.error.message || 'Erro ao criar um item do carrossel.');
+  if(!data.id){
+    // A Meta às vezes devolve uma resposta sem "error" e sem "id" (falha
+    // momentânea). Sem essa checagem, o id undefined seguia adiante e só
+    // dava erro confuso ("resource does not exist") bem mais tarde.
+    throw new Error('O Instagram não retornou um ID pra um item do carrossel (resposta inesperada). Tenta de novo em alguns segundos.');
+  }
   return data.id;
 }
 
@@ -67,6 +73,9 @@ export async function createCarouselParent(igId, token, childrenIds, caption){
   });
   const data = await res.json();
   if(data.error) throw new Error(data.error.message || 'Erro ao criar o carrossel.');
+  if(!data.id){
+    throw new Error('O Instagram não retornou um ID de criação pro carrossel (resposta inesperada). Tenta de novo em alguns segundos.');
+  }
   return data.id;
 }
 
@@ -79,5 +88,8 @@ export async function publishContainer(igId, token, creationId){
   });
   const data = await res.json();
   if(data.error) throw new Error(data.error.message || 'Erro ao publicar.');
+  if(!data.id){
+    throw new Error('O Instagram não retornou um ID de post ao publicar (resposta inesperada). Confira no app se ele foi publicado antes de tentar de novo.');
+  }
   return data.id;
 }
