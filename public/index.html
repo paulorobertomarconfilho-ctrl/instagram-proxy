@@ -149,6 +149,17 @@
   .guide-item .guide-body p{margin:0 0 8px;}
   .guide-item .guide-body p:last-child{margin-bottom:0;}
   .guide-item .guide-body strong{color:var(--purple-dark);}
+  .guide-steps{margin:0 0 10px;padding-left:20px;display:flex;flex-direction:column;gap:9px;}
+  .guide-steps li{padding-left:2px;}
+  .guide-code{
+    display:inline-block;margin-top:4px;background:var(--paper);border:1px solid var(--line);
+    border-radius:6px;padding:4px 7px;font-family:monospace;font-size:11.5px;color:var(--purple-dark);
+    word-break:break-all;
+  }
+  .guide-body code{
+    background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+    font-family:monospace;font-size:12px;color:var(--purple-dark);
+  }
   .modal{
     background:var(--paper);color:var(--ink);width:100%;max-width:480px;
     border-radius:20px;padding:28px;max-height:88vh;overflow-y:auto;
@@ -547,9 +558,22 @@
       <details class="guide-item">
         <summary>🔗 Conectar Instagram</summary>
         <div class="guide-body">
-          <p>Pra uma conta publicar de verdade, ela precisa de duas informações do Instagram: o <strong>ID da conta Business</strong> e um <strong>token de acesso</strong> (começa com "IGAAM").</p>
-          <p>Isso exige que a conta do Instagram seja Business ou Criador de conteúdo, vinculada a uma Página do Facebook, com um app criado no Meta for Developers gerando o token de longa duração. É o passo mais técnico do app — se travar nele, é só pedir ajuda.</p>
-          <p>Esses dados ficam guardados só no seu navegador, nunca são enviados pra fora.</p>
+          <p>Pra uma conta publicar de verdade, ela precisa de duas informações: o <strong>ID da conta Business</strong> e um <strong>token de acesso</strong> (começa com "IGAA"). Antes de começar, confirme que a conta do Instagram que você quer conectar é <strong>Business ou Criador de conteúdo</strong> (não pessoal) e está com o perfil público.</p>
+          <ol class="guide-steps">
+            <li>Abra <strong>developers.facebook.com/apps</strong> e entre com a mesma conta que você já usa.</li>
+            <li>Clique no <strong>app que você já criou</strong> (o mesmo usado pra conectar a primeira conta).</li>
+            <li>No menu da esquerda, clique em <strong>Instagram</strong> e depois em <strong>"API setup with Instagram business login"</strong>.</li>
+            <li>Clique em <strong>"Add account"</strong> e faça login com o usuário/senha da conta do Instagram que você quer conectar agora.</li>
+            <li>Com a conta já aparecendo na lista, clique em <strong>"Generate token"</strong> do lado dela e confirme a autorização.</li>
+            <li><strong>Copie</strong> o token gerado (começa com "IGAA...") — vai usar ele duas vezes, guarde num bloco de notas por um instante.</li>
+            <li>Abra uma <strong>nova aba</strong> e cole este endereço, substituindo <code>COLE_O_TOKEN_AQUI</code> pelo token copiado, depois aperte Enter:<br><code class="guide-code">https://graph.instagram.com/v21.0/me?fields=user_id,username&amp;access_token=COLE_O_TOKEN_AQUI</code></li>
+            <li>Vai aparecer um texto como <code>{"user_id":"17841...","username":"..."}</code>. <strong>Copie</strong> só os números depois de <code>"user_id":</code> — esse é o ID da conta.</li>
+            <li>Volte pro Central Instagram, clique em <strong>"Conectar Instagram"</strong> no card da conta.</li>
+            <li><strong>Cole</strong> o número do passo 8 no campo "ID da conta Instagram Business".</li>
+            <li><strong>Cole</strong> o token do passo 6 (o "IGAA...") no campo "Token de acesso".</li>
+            <li>Clique em <strong>"Salvar conexão"</strong>. Pronto.</li>
+          </ol>
+          <p>Esse token dura 60 dias — depois disso, repete só os passos 5 e 6 (gerar de novo) e atualiza a conexão no app. Esses dados ficam guardados só no seu navegador, nunca são enviados pra fora.</p>
         </div>
       </details>
 
