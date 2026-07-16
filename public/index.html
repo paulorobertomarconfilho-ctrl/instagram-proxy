@@ -149,8 +149,14 @@
   .guide-item .guide-body p{margin:0 0 8px;}
   .guide-item .guide-body p:last-child{margin-bottom:0;}
   .guide-item .guide-body strong{color:var(--purple-dark);}
+  .guide-part{
+    margin:14px 0 8px;font-weight:800;font-size:12px;color:var(--purple-dark);
+    text-transform:uppercase;letter-spacing:0.03em;
+  }
+  .guide-body .guide-part:first-child{margin-top:2px;}
   .guide-steps{margin:0 0 10px;padding-left:20px;display:flex;flex-direction:column;gap:9px;}
   .guide-steps li{padding-left:2px;}
+  .guide-steps-bullet{list-style:disc;}
   .guide-code{
     display:inline-block;margin-top:4px;background:var(--paper);border:1px solid var(--line);
     border-radius:6px;padding:4px 7px;font-family:monospace;font-size:11.5px;color:var(--purple-dark);
@@ -558,22 +564,57 @@
       <details class="guide-item">
         <summary>🔗 Conectar Instagram</summary>
         <div class="guide-body">
-          <p>Pra uma conta publicar de verdade, ela precisa de duas informações: o <strong>ID da conta Business</strong> e um <strong>token de acesso</strong> (começa com "IGAA"). Antes de começar, confirme que a conta do Instagram que você quer conectar é <strong>Business ou Criador de conteúdo</strong> (não pessoal) e está com o perfil público.</p>
+          <p>Esse é o passo mais técnico do app, mas dá pra fazer sem saber nada de programação. Vai levar uns 10 minutos e só precisa ser feito <strong>uma vez por conta</strong>. Vou explicar clique por clique.</p>
+
+          <p class="guide-part">Antes de começar</p>
+          <ul class="guide-steps guide-steps-bullet">
+            <li>A conta do Instagram que você quer conectar precisa ser <strong>Business ou Criador de conteúdo</strong> — não pode ser conta pessoal comum. Pra conferir/mudar isso: abre o app do Instagram no celular → seu perfil → menu ☰ (canto superior direito) → <strong>Configurações e privacidade</strong> → <strong>Conta</strong> → <strong>Tipo de conta e ferramentas</strong>.</li>
+            <li>O perfil dessa conta precisa estar <strong>público</strong> (não privado).</li>
+            <li>Tenha em mãos o <strong>usuário e senha do Instagram</strong> dessa conta — você vai precisar fazer login com ela num dos passos.</li>
+            <li>Faça isso num <strong>computador</strong> (celular também funciona, mas fica mais fácil copiar/colar no computador).</li>
+          </ul>
+
+          <p class="guide-part">Parte 1 de 3 — Gerar o token de acesso</p>
           <ol class="guide-steps">
-            <li>Abra <strong>developers.facebook.com/apps</strong> e entre com a mesma conta que você já usa.</li>
-            <li>Clique no <strong>app que você já criou</strong> (o mesmo usado pra conectar a primeira conta).</li>
-            <li>No menu da esquerda, clique em <strong>Instagram</strong> e depois em <strong>"API setup with Instagram business login"</strong>.</li>
-            <li>Clique em <strong>"Add account"</strong> e faça login com o usuário/senha da conta do Instagram que você quer conectar agora.</li>
-            <li>Com a conta já aparecendo na lista, clique em <strong>"Generate token"</strong> do lado dela e confirme a autorização.</li>
-            <li><strong>Copie</strong> o token gerado (começa com "IGAA...") — vai usar ele duas vezes, guarde num bloco de notas por um instante.</li>
-            <li>Abra uma <strong>nova aba</strong> e cole este endereço, substituindo <code>COLE_O_TOKEN_AQUI</code> pelo token copiado, depois aperte Enter:<br><code class="guide-code">https://graph.instagram.com/v21.0/me?fields=user_id,username&amp;access_token=COLE_O_TOKEN_AQUI</code></li>
-            <li>Vai aparecer um texto como <code>{"user_id":"17841...","username":"..."}</code>. <strong>Copie</strong> só os números depois de <code>"user_id":</code> — esse é o ID da conta.</li>
-            <li>Volte pro Central Instagram, clique em <strong>"Conectar Instagram"</strong> no card da conta.</li>
-            <li><strong>Cole</strong> o número do passo 8 no campo "ID da conta Instagram Business".</li>
-            <li><strong>Cole</strong> o token do passo 6 (o "IGAA...") no campo "Token de acesso".</li>
-            <li>Clique em <strong>"Salvar conexão"</strong>. Pronto.</li>
+            <li>Abra uma aba nova no navegador e digite este endereço: <code class="guide-code">developers.facebook.com/apps</code></li>
+            <li>Se pedir login, entre com a conta do Facebook que você já usa (a mesma de sempre, não precisa criar outra).</li>
+            <li>Vai aparecer uma lista de "apps" (são projetos técnicos — não é o Instagram em si). Clique no nome do app que já existe (o mesmo que foi usado pra conectar a primeira conta). Se não souber qual é, me chama que a gente confirma junto antes de continuar.</li>
+            <li>Isso abre um painel. Olhe o <strong>menu do lado esquerdo</strong> da tela e clique no item chamado <strong>Instagram</strong>.</li>
+            <li>Dentro de Instagram, clique em <strong>"API setup with Instagram business login"</strong> (o painel da Meta costuma ficar só em inglês, é normal).</li>
+            <li>Vai aparecer uma área com um botão escrito <strong>"Add account"</strong>. Clique nele.</li>
+            <li>Abre uma tela de login do Instagram. Digite o <strong>usuário e senha da conta do Instagram</strong> que você quer conectar agora (não é a conta do Facebook — é a conta do Instagram mesmo).</li>
+            <li>O Instagram pode perguntar se você autoriza o aplicativo a acessar essa conta. Clique em <strong>"Autorizar"</strong> ou <strong>"Allow"</strong>.</li>
+            <li>Você volta pra tela da Meta, e agora o nome dessa conta do Instagram deve aparecer numa lista.</li>
+            <li>Do lado do nome dessa conta, tem um botão <strong>"Generate token"</strong>. Clique nele.</li>
+            <li>Vai aparecer um texto grande e bagunçado começando com <code>IGAA</code> — isso é o <strong>token</strong>. Pra copiar ele inteiro: clique bem no início do texto (antes do "I"), segure o botão do mouse e arraste até o final de tudo, solte, e aperte <strong>Ctrl+C</strong> (Windows) ou <strong>Cmd+C</strong> (Mac).</li>
+            <li>Abra o Bloco de Notas (Windows) ou o app Notas (Mac/iPhone) e cole esse texto lá (<strong>Ctrl+V</strong> ou <strong>Cmd+V</strong>), só pra não perder — você vai usar ele de novo daqui a pouco.</li>
           </ol>
-          <p>Esse token dura 60 dias — depois disso, repete só os passos 5 e 6 (gerar de novo) e atualiza a conexão no app. Esses dados ficam guardados só no seu navegador, nunca são enviados pra fora.</p>
+
+          <p class="guide-part">Parte 2 de 3 — Descobrir o ID da conta</p>
+          <ol class="guide-steps" start="13">
+            <li>Abra uma <strong>aba nova</strong> no navegador (não feche a de antes).</li>
+            <li>Na barra de endereço, cole exatamente isto: <code class="guide-code">https://graph.instagram.com/v21.0/me?fields=user_id,username&amp;access_token=</code></li>
+            <li>Sem apertar Enter ainda: clique bem no final desse endereço (logo depois do sinal de <code>=</code>) e cole ali o token que você guardou no passo 11/12.</li>
+            <li>Agora aperte <strong>Enter</strong>.</li>
+            <li>Vai aparecer uma página só com um texto, parecido com isto: <code class="guide-code">{"user_id":"17841400123456789","username":"seu.usuario"}</code></li>
+            <li>Você precisa só do número que está entre aspas depois de <code>"user_id":</code> (uma sequência de uns 15 a 17 dígitos). Selecione só esse número (clique antes do primeiro dígito e arraste até o último, sem pegar as aspas) e copie com <strong>Ctrl+C</strong>/<strong>Cmd+C</strong>.</li>
+            <li>Cole esse número no mesmo Bloco de Notas/Notas de antes, embaixo do token, só pra guardar.</li>
+          </ol>
+
+          <p class="guide-part">Parte 3 de 3 — Conectar no Central Instagram</p>
+          <ol class="guide-steps" start="20">
+            <li>Volte pra aba do Central Instagram.</li>
+            <li>Se a conta ainda não existe no app, clique em <strong>"+ Nova conta"</strong> e crie ela primeiro (nome, nicho, tom de voz).</li>
+            <li>No card dessa conta, embaixo do nome, tem um linkzinho escrito <strong>"Conectar Instagram"</strong>. Clique nele.</li>
+            <li>Abre uma janela com dois campos.</li>
+            <li>No campo <strong>"ID da conta Instagram Business"</strong>, cole o número que você guardou no passo 18.</li>
+            <li>No campo <strong>"Token de acesso"</strong>, cole o token completo (o texto que começa com <code>IGAA</code>) do passo 11.</li>
+            <li>Confira se não sobrou nenhum espaço em branco no início ou no final dos campos.</li>
+            <li>Clique no botão roxo <strong>"Salvar conexão"</strong>.</li>
+            <li>Pronto — o card dessa conta deve passar a mostrar uma bolinha verde com o texto "Instagram conectado".</li>
+          </ol>
+
+          <p>Travou em algum passo? Me chama e me diz o número do passo — eu te ajudo a destravar. Esse token dura 60 dias: quando expirar, repete só a Parte 1 e a Parte 3 (o ID da conta não muda, só o token). Esses dados ficam guardados só no seu navegador, nunca são enviados pra fora.</p>
         </div>
       </details>
 
