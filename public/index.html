@@ -133,6 +133,22 @@
   }
   .overlay.show{display:flex;}
   #overlayArtCreator{ z-index:60; } /* precisa ficar acima do overlayGen, que a abre por cima */
+  .guide-list{display:flex;flex-direction:column;gap:8px;}
+  .guide-item{
+    background:var(--paper-2);border:1.5px solid var(--line);border-radius:12px;
+    padding:12px 14px;overflow:hidden;
+  }
+  .guide-item summary{
+    cursor:pointer;font-weight:700;font-size:13.5px;color:var(--ink);list-style:none;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .guide-item summary::-webkit-details-marker{display:none;}
+  .guide-item summary::after{content:'+';font-size:16px;color:var(--ink-soft);font-weight:400;}
+  .guide-item[open] summary::after{content:'–';}
+  .guide-item .guide-body{margin-top:10px;font-size:13px;line-height:1.55;color:var(--ink);}
+  .guide-item .guide-body p{margin:0 0 8px;}
+  .guide-item .guide-body p:last-child{margin-bottom:0;}
+  .guide-item .guide-body strong{color:var(--purple-dark);}
   .modal{
     background:var(--paper);color:var(--ink);width:100%;max-width:480px;
     border-radius:20px;padding:28px;max-height:88vh;overflow-y:auto;
@@ -364,7 +380,10 @@
       <p>Suas contas em experimento, lado a lado</p>
     </div>
   </div>
-  <button class="btn btn-ghost" id="resetBtn">Limpar dados</button>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-ghost" id="guideBtn">❓ Guia</button>
+    <button class="btn btn-ghost" id="resetBtn">Limpar dados</button>
+  </div>
 </div>
 
 <div class="hero-banner">
@@ -504,6 +523,77 @@
     <div class="modal-actions">
       <button class="btn btn-primary" type="button" id="artUseBtn">Usar essa arte</button>
       <button class="btn btn-ghost" data-close="overlayArtCreator">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: guia de uso da plataforma -->
+<div class="overlay" id="overlayGuide">
+  <div class="modal guide-modal" style="position:relative;max-width:620px;">
+    <button class="close-x" data-close="overlayGuide">&times;</button>
+    <h2>Guia da Central Instagram</h2>
+    <div class="sub">Um resumo rápido de cada parte do app. Clica em cada tópico pra abrir.</div>
+
+    <div class="guide-list">
+      <details class="guide-item" open>
+        <summary>👤 Contas</summary>
+        <div class="guide-body">
+          <p>Cada card na tela inicial é uma conta separada — pode ser um perfil real do Instagram ou só um experimento. Clica em <strong>"+ Nova conta"</strong> pra criar uma, preenchendo nome/@usuário, nicho (do que a conta fala) e tom de voz (como a IA vai escrever pra ela).</p>
+          <p>O <strong>logotipo</strong> é opcional: se você enviar um, ele entra automaticamente no rodapé de toda foto/vídeo publicado por essa conta.</p>
+          <p>"Editar" muda esses dados depois, e "Remover" apaga a conta (e o que estiver salvo só nela) deste navegador.</p>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🔗 Conectar Instagram</summary>
+        <div class="guide-body">
+          <p>Pra uma conta publicar de verdade, ela precisa de duas informações do Instagram: o <strong>ID da conta Business</strong> e um <strong>token de acesso</strong> (começa com "IGAAM").</p>
+          <p>Isso exige que a conta do Instagram seja Business ou Criador de conteúdo, vinculada a uma Página do Facebook, com um app criado no Meta for Developers gerando o token de longa duração. É o passo mais técnico do app — se travar nele, é só pedir ajuda.</p>
+          <p>Esses dados ficam guardados só no seu navegador, nunca são enviados pra fora.</p>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>✨ Gerar conteúdo</summary>
+        <div class="guide-body">
+          <p>Clica em "Gerar conteúdo" no card da conta. O processo tem 3 etapas:</p>
+          <p><strong>1. Conteúdo</strong> — escolhe o formato (Reel, Carrossel, Story, Post único) e o tema, e pede pra IA escrever a legenda/roteiro (ou cola um texto já pronto).</p>
+          <p><strong>2. Imagem</strong> — envia foto/vídeo do computador ou usa "Criar arte com texto". Em Carrossel e Sequência de Stories dá pra escolher várias mídias de uma vez.</p>
+          <p><strong>3. Publicar</strong> — revisa tudo e escolhe "Publicar agora" ou "Agendar" pra uma data/hora futura.</p>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🎨 Criar arte com texto</summary>
+        <div class="guide-body">
+          <p>Ferramenta rápida pra montar uma imagem sem sair do app: escolhe um fundo (gradiente ou cor sólida), escreve uma frase por cima, ajusta cor/tamanho/posição do texto, e salva direto na galeria do post.</p>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>📚 Biblioteca</summary>
+        <div class="guide-body">
+          <p>Cada conta tem sua própria Biblioteca de documentos de referência (PDF, planilha, texto). O que estiver lá é usado pela IA como contexto extra ao gerar legendas e roteiros — útil pra manter a marca consistente (nome de produtos, tom, informações específicas).</p>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🗓️ Publicar vs. Agendar</summary>
+        <div class="guide-body">
+          <p>"Publicar agora" manda pro Instagram na hora. Vídeo demora mais que foto pra processar — nesses casos prefira "Agendar" (mesmo que pra poucos minutos à frente), porque o agendamento continua tentando automaticamente até terminar de processar.</p>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>📊 Métricas e Registro</summary>
+        <div class="guide-body">
+          <p>Tudo que já foi publicado aparece na lista "Conteúdo gerado, por dia", com alcance, curtidas, comentários e outras métricas reais, puxadas direto do Instagram.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="overlayGuide">Fechar</button>
     </div>
   </div>
 </div>
@@ -2493,6 +2583,10 @@ document.getElementById('genPublishBtn').addEventListener('click', async ()=>{
     statusBox.textContent = 'Não foi possível publicar: ' + e.message;
     console.error(e);
   }
+});
+
+document.getElementById('guideBtn').addEventListener('click', ()=>{
+  document.getElementById('overlayGuide').classList.add('show');
 });
 
 document.getElementById('resetBtn').addEventListener('click', async ()=>{
